@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <title>GPTFlask</title>
+</head>
+<body>
+    <script
+        src="https://code.jquery.com/jquery-3.7.0.js"
+        integrity="sha256-JlqSTELeR4TLqP0OG9dxM7yDPqX1ox/HfgiSLBj8+kM="
+        crossorigin="anonymous">
+    </script>
+    <script>
+        var response_history = [];
+    </script>
+    <div class="container">
+        <h1>Welcome to GPTFlask</h1>
+        <div class="col-8">
+            <div class="card">
+                <div class="card-body">
+                    <p id="response" class="card-text"></p>
+                </div>
+            </div>
+        </div>
+        <label for="system-prompt">Select a persona for GPT</label><br>
+        <form id="gptForm" action="/get_response" method="post">
+            <div class="mb-3">
+                <select id="system-prompt" name="system-prompt" class="system-prompt-select" aria-label="Default select example">
+                    <option selected value="1">General</option>
+                    <option value="2">Scientist</option>
+                    <option value="3">Editor & Literary Critic</option>
+                    <option value="4">Copywriter</option>
+                    <option value="5">Idea Generator/Brainstorm</option>
+                    <option value="6">Coder</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="prompt">Enter your prompt:</label><br>
+                <textarea id="prompt" name="prompt" rows="4" cols="50"></textarea><br>
+            </div>
+            <div class="mb-3">
+                <input type="submit" class="btn btn-primary" value="Submit">
+            </div>
+            </form>
+            <script>
+                $("form").submit(function(event) {
+                    event.preventDefault();
+                    var form = $(this);
+                    var formData = new FormData($('#gptForm')[0]);
+                    var formObject = Object.fromEntries(formData)
+                    let userContent = $("#prompt").val();
+                    let userDict = {role: "user", content: userContent};
+                    response_history.push(userDict);
+                    formData.append("responseHistory", response_history);
+                    formObject.responseHistory = response_history
+                    /*
+                    for (var [key, value] of formData.entries()) { 
+                      console.log(key, value);
+                    }
+                    */
+                    var formJSON = JSON.stringify(formObject);
+                    console.log(formJSON)
+                    $.ajax({
+                        type: form.attr('method'),
+                        url: form.attr('action'),
+                        processData: false,
+                        dataType: 'json',
+                        data:formJSON,
+                        contentType: 'application/json',
+                        success: function(response) {
+                            console.log("Initial response history:")
+                            console.log(response_history)
+                            var htmltext = ""
+                            let responseDict = {role: "assistant", content: response.choices[0].message.content}
+                            response_history.push(responseDict)
+                            console.log("Updated response history:")
+                            console.log(response_history)
+                            for (const dict of response_history) {
+                                console.log(dict)
+                                console.log(dict.content)
+                                let htmlHead = `<div class="${dict.role}_response">`;
+                                let htmlFoot = '</div>'
+                                if ($("#system-prompt").val() === "6") {
+                                    htmlContent = marked.parse(dict.content)
+                                } else {
+                                    htmlContent = dict.content
+                                }
+                                htmltext = htmltext + htmlHead + htmlContent + htmlFoot;
+                            }
+                            console.log("HTML Text:")
+                            console.log(htmltext)
+                            $("#response").html(htmltext);
+                            if (response_history.length > 0) {
+                                $("#system-prompt").css({"pointer-events": "none", "touch-action": "none", "background": "#ede6e6"});
+                            }
+                        },
+                        error: function(xhr, textStatus, errorThrown) {
+                            // Error handling
+                            console.log("Error fetching data: " + textStatus + ": " + errorThrown + ": " + xhr);
+                        }
+                    });
+                });
+            </script>
+
+</div>
+   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-HwwvtgBNo3bZJJLYd8oVXjrBZt8cqVSpeBNS5n7C8IVInixGAoxmnlMuBnhbgrkm" crossorigin="anonymous"></script>
+</body>
+</html>
