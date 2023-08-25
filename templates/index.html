@@ -19,6 +19,12 @@
     </script>
     <div class="container">
         <h1>Welcome to GPTFlask</h1>
+        {% if current_user.is_authenticated %}
+        <h1>You are logged in</h1>
+        <a href="/logout">Logout</a>
+        {% else %}
+        <h1>You are not logged in</h1>
+        {% endif %}
         <div class="col-8">
             <div class="card">
                 <div class="card-body">
@@ -82,7 +88,7 @@
                             for (const dict of response_history) {
                                 console.log(dict)
                                 console.log(dict.content)
-                                let htmlHead = `<div class="${dict.role}_response">`;
+                                let htmlHead = `<div class="${dict.role}_response response">`;
                                 let htmlFoot = '</div>'
                                 if ($("#system-prompt").val() === "6") {
                                     htmlContent = marked.parse(dict.content)
