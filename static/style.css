@@ -1,7 +1,29 @@
+body {
+    background-color: #f8f8f8;
+}
+
+.title-header { 
+    background-color: #33517f; 
+    color: #f8f9fa;
+    margin-bottom: 2.0rem;
+}
+
+.title-header a {
+    color: #f8f9fa;
+    text-decoration: none;
+}
+
 .user_response {
     background-color: #eee;
 }
 
 .response {
     padding: 1.0rem;
+}
+
+.card {
+    border: none;
+    border-radius: 8px;
+    background-color: #fff;
+    box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.1);
 }
