@@ -69,6 +69,8 @@ def get_response():
         system_prompt = "You are a master of generating new ideas and brainstorming solutions. You think outside of the box and are very creative."
     elif system_prompt_code == "6":
         system_prompt = "You are an expert programmer. You write concise, easy to read code that is well commented. Use Markdown formatting."
+    elif system_prompt_code == "7":
+        system_prompt = "You are an expert at composing emails. You write your emails using proper grammar and punctuation. Your tone is friendly and professional but not overly formal."
     if system_prompt_code != "6":
         system_prompt = system_prompt + " Format your response as HTML using Bootstrap 5 HTML tags and code. Use hyperlinks to link to resources but only if helpful and possible."
     print(system_prompt)
