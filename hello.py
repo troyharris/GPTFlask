@@ -78,7 +78,7 @@ def get_response():
     #    messages = response_history
     print(messages)
     response =  openai.ChatCompletion.create(
-        model="gpt-3.5-turbo", 
+        model="gpt-4", 
         messages=messages
     )
     print(response)
