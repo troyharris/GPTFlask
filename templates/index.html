@@ -54,6 +54,7 @@
                     <script>
                         $("form").submit(function(event) {
                             event.preventDefault();
+                            $('#spinner').show();
                             var form = $(this);
                             var formData = new FormData($('#gptForm')[0]);
                             var formObject = Object.fromEntries(formData)
@@ -77,6 +78,7 @@
                                 data:formJSON,
                                 contentType: 'application/json',
                                 success: function(response) {
+                                    $('#spinner').hide();
                                     console.log("Initial response history:")
                                     console.log(response_history)
                                     var htmltext = ""
@@ -106,6 +108,7 @@
                                 error: function(xhr, textStatus, errorThrown) {
                                     // Error handling
                                     console.log("Error fetching data: " + textStatus + ": " + errorThrown + ": " + xhr);
+                                    $('#spinner').hide();
                                 }
                             });
                         });
@@ -115,6 +118,9 @@
                     <div class="card">
                         <div class="card-body">
                             <p id="response" class="card-text"></p>
+                            <div class="spinner-border text-secondary" role="status" style="display: none;">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
                         </div>
                     </div>
                 </div>
