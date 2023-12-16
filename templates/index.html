@@ -94,7 +94,7 @@
                                         if ($("#system-prompt").val() === "6") {
                                             htmlContent = marked.parse(dict.content)
                                         } else {
-                                            htmlContent = dict.content
+                                            htmlContent = dict.content.replace("```html", "").replace("```", "")
                                         }
                                         htmltext = htmltext + htmlHead + htmlContent + htmlFoot;
                                     }
