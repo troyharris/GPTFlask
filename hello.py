@@ -1,9 +1,12 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 import openai
 import os
+import base64
 #import markdown
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
 app = Flask(__name__)
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -40,6 +43,10 @@ with app.app_context():
 def loader_user(user_id):
     return Users.query.get(user_id)
 
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 @app.route('/')
 def index():
     if not current_user.is_authenticated:
@@ -53,6 +60,8 @@ def get_response():
     #print(request_json["responseHistory"])
     response_history = request_json["responseHistory"]
     system_prompt_code = request_json["system-prompt"]
+    image_data = request_json["imageData"]
+    model = request_json["model"]
     #prompt = request.form['prompt']
     #if len(response_history) == 1 :
     prompt = "hello there?"
@@ -76,12 +85,34 @@ def get_response():
     print(system_prompt)
     messages = [{"role": "system", "content": system_prompt}]
     messages += response_history
-   # else :
-    #    messages = response_history
     print(messages)
+    ### If a file was uploaded, load the vision model no matter what and override the system prompt ###
+    if image_data and image_data != '':
+        print("I found a file")
+        #file = request.files['file']
+        #base64_image = base64.b64encode(file.read())
+        content = [
+            {
+                "type": "text",
+                "text": "What is in this image?"
+            },
+            {
+                "type": "image_url",
+                "image_url": f"{image_data}"
+            }
+        ]
+        model='gpt-4-vision-preview'
+        system_prompt = 'You are a helpful assistant that can describe an image in detail.'
+        messages = [{"role": "system", "content": system_prompt}]
+        messages += [{"role": "user", "content": content}]
+    else:
+        print("I did not find a file")
+
     response =  openai.ChatCompletion.create(
-        model="gpt-4-1106-preview", 
-        messages=messages
+        #model="gpt-4-1106-preview", 
+        model=model,
+        messages=messages,
+        max_tokens=1024
     )
     print(response)
     return jsonify(response)

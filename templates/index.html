@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
     <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -16,24 +17,98 @@
     </script>
     <script>
         var response_history = [];
+        var image_data="-"
     </script>
-    <div class="container-fluid">
-        <div class="row align-items-center title-header">
-            <div class="col-10">
-                <h1 class="display-5">GPTFlask</h1>
-            </div>
-            <div class="col-2">
-                {% if current_user.is_authenticated %}
-                    <a href="/logout">Logout</a>
-                {% endif %}
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-3">
-                <label for="system-prompt">Select a persona for GPT</label><br>
-                <form id="gptForm" action="/get_response" method="post">
+    <script type="text/javascript">
+        function readURL(input, form) {
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                console.log("Read file");
+                //$('#falseinput').attr('src', e.target.result);
+                //$('#image-data').val(e.target.result);
+                image_data = e.target.result;
+                console.log(image_data)
+                runAjax(form)
+            };
+            reader.readAsDataURL(input);
+        }
+
+        function runAjax(form) {
+            var formData = new FormData($('#gptForm')[0]);
+            var formObject = Object.fromEntries(formData)
+            let userContent = $("#prompt").val();
+            let userDict = {role: "user", content: userContent};
+            response_history.push(userDict);
+            formData.append("responseHistory", response_history);
+            console.log("appending image data")
+            formData.append("imageData", image_data);
+            formObject.responseHistory = response_history
+            formObject.imageData = image_data
+            /*
+            for (var [key, value] of formData.entries()) { 
+            console.log(key, value);
+            }
+            */
+            var formJSON = JSON.stringify(formObject);
+            console.log(formJSON)
+            $.ajax({
+                type: form.attr('method'),
+                url: form.attr('action'),
+                processData: false,
+                dataType: 'json',
+                data:formJSON,
+                contentType: 'application/json',
+                success: function(response) {
+                    $('#spinner').hide();
+                    console.log("Initial response history:")
+                    console.log(response_history)
+                    var htmltext = ""
+                    let responseDict = {role: "assistant", content: response.choices[0].message.content}
+                    response_history.push(responseDict)
+                    console.log("Updated response history:")
+                    console.log(response_history)
+                    for (const dict of response_history) {
+                        console.log(dict)
+                        console.log(dict.content)
+                        let htmlHead = `<div class="${dict.role}_response response">`;
+                        let htmlFoot = '</div>'
+                        if ($("#system-prompt").val() === "6") {
+                            htmlContent = marked.parse(dict.content)
+                        } else {
+                            htmlContent = dict.content.replace("```html", "").replace("```", "")
+                        }
+                        htmltext = htmltext + htmlHead + htmlContent + htmlFoot;
+                    }
+                    console.log("HTML Text:")
+                    console.log(htmltext)
+                    $("#response").html(htmltext);
+                    if (response_history.length > 0) {
+                        $("#system-prompt").css({"pointer-events": "none", "touch-action": "none", "background": "#ede6e6"});
+                    }
+                },
+                error: function(xhr, textStatus, errorThrown) {
+                    // Error handling
+                    console.log("Error fetching data: " + textStatus + ": " + errorThrown + ": " + xhr);
+                    $('#spinner').hide();
+                }
+            });
+        }
+    </script>
+    <div class="container-fluid min-vh-100 d-flex flex-column">
+        <div class="row flex-grow-1">
+            <div class="col-md-3 bg-dark text-light p-3">
+                <h1 class="display-7">GPTFlask</h1>
+                <form id="gptForm" action="/get_response" method="post" enctype=multipart/form-data>
                     <div class="mb-3">
-                        <select id="system-prompt" name="system-prompt" class="system-prompt-select form-control" aria-label="Default select example">
+                        <label for="model">Model</label><br>
+                        <select id="model" name="model" class="model-select form-control" aria-label="Open AI Model">
+                            <option selected value="gpt-4-1106-preview">GPT4</option>
+                            <option value="gpt-3.5-turbo">GPT 3.5 Turbo</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="system-prompt">Select a persona for GPT</label><br>
+                        <select id="system-prompt" name="system-prompt" class="system-prompt-select form-control" aria-label="System persona">
                             <option selected value="1">General</option>
                             <option value="2">Scientist</option>
                             <option value="3">Editor & Literary Critic</option>
@@ -48,73 +123,34 @@
                         <textarea class="form-control" id="prompt" name="prompt" rows="4"></textarea><br>
                     </div>
                     <div class="mb-3">
+                        <label for="file" class="form-label">Image</label>
+                        <input class="form-control" type="file" id="file">
+                    </div>
+                    <div class="mb-3">
                         <input type="submit" class="btn btn-primary" value="Submit">
                     </div>
-                    </form>
+                </form>
+                <div class="position-absolute bottom-0 start-0 p-3">
+                {% if current_user.is_authenticated %}
+                    <a href="/logout">Logout</a>
+                {% endif %}
+                </div>
                     <script>
                         $("form").submit(function(event) {
                             event.preventDefault();
                             $('#spinner').show();
                             var form = $(this);
-                            var formData = new FormData($('#gptForm')[0]);
-                            var formObject = Object.fromEntries(formData)
-                            let userContent = $("#prompt").val();
-                            let userDict = {role: "user", content: userContent};
-                            response_history.push(userDict);
-                            formData.append("responseHistory", response_history);
-                            formObject.responseHistory = response_history
-                            /*
-                            for (var [key, value] of formData.entries()) { 
-                            console.log(key, value);
+                            if ($("#file")[0].files[0]) {
+                                console.log("There are files")
+                                readURL($("#file")[0].files[0], form);
+                            } else {
+                                console.log("NO FILES")
+                                runAjax(form)
                             }
-                            */
-                            var formJSON = JSON.stringify(formObject);
-                            console.log(formJSON)
-                            $.ajax({
-                                type: form.attr('method'),
-                                url: form.attr('action'),
-                                processData: false,
-                                dataType: 'json',
-                                data:formJSON,
-                                contentType: 'application/json',
-                                success: function(response) {
-                                    $('#spinner').hide();
-                                    console.log("Initial response history:")
-                                    console.log(response_history)
-                                    var htmltext = ""
-                                    let responseDict = {role: "assistant", content: response.choices[0].message.content}
-                                    response_history.push(responseDict)
-                                    console.log("Updated response history:")
-                                    console.log(response_history)
-                                    for (const dict of response_history) {
-                                        console.log(dict)
-                                        console.log(dict.content)
-                                        let htmlHead = `<div class="${dict.role}_response response">`;
-                                        let htmlFoot = '</div>'
-                                        if ($("#system-prompt").val() === "6") {
-                                            htmlContent = marked.parse(dict.content)
-                                        } else {
-                                            htmlContent = dict.content.replace("```html", "").replace("```", "")
-                                        }
-                                        htmltext = htmltext + htmlHead + htmlContent + htmlFoot;
-                                    }
-                                    console.log("HTML Text:")
-                                    console.log(htmltext)
-                                    $("#response").html(htmltext);
-                                    if (response_history.length > 0) {
-                                        $("#system-prompt").css({"pointer-events": "none", "touch-action": "none", "background": "#ede6e6"});
-                                    }
-                                },
-                                error: function(xhr, textStatus, errorThrown) {
-                                    // Error handling
-                                    console.log("Error fetching data: " + textStatus + ": " + errorThrown + ": " + xhr);
-                                    $('#spinner').hide();
-                                }
-                            });
                         });
                     </script>
                 </div>
-                <div class="col-md-9">
+                <div class="col-md-9 p-3">
                     <div class="card">
                         <div class="card-body">
                             <p id="response" class="card-text"></p>
@@ -127,6 +163,6 @@
             </div>
 
 </div>
-   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-HwwvtgBNo3bZJJLYd8oVXjrBZt8cqVSpeBNS5n7C8IVInixGAoxmnlMuBnhbgrkm" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-HwwvtgBNo3bZJJLYd8oVXjrBZt8cqVSpeBNS5n7C8IVInixGAoxmnlMuBnhbgrkm" crossorigin="anonymous"></script>
 </body>
 </html>
