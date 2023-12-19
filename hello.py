@@ -107,15 +107,30 @@ def get_response():
         messages += [{"role": "user", "content": content}]
     else:
         print("I did not find a file")
-
-    response =  openai.ChatCompletion.create(
-        #model="gpt-4-1106-preview", 
-        model=model,
-        messages=messages,
-        max_tokens=1024
-    )
-    print(response)
-    return jsonify(response)
+    if model == 'dall-e-3':
+        print("generate image")
+        image_prompt = request_json["imagePrompt"]
+        response = openai.Image.create(
+            model="dall-e-3",
+            prompt=image_prompt,
+            size="1024x1024",
+            quality="standard",
+            n=1
+        )
+        image_url = response.data[0].url
+        print("Image URL....")
+        print(image_url)
+        print("End URL")
+        return jsonify(response)
+    else:
+        response =  openai.ChatCompletion.create(
+            #model="gpt-4-1106-preview", 
+            model=model,
+            messages=messages,
+            max_tokens=1024
+        )
+        print(response)
+        return jsonify(response)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():

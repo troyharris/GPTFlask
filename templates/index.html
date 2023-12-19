@@ -17,7 +17,26 @@
     </script>
     <script>
         var response_history = [];
-        var image_data="-"
+        var image_data=""
+        var selectedModel = "";
+
+        $(document).ready(function() {
+            console.log("Document ready!")
+            // Listen for changes on the model select box
+            $('#model').on('change', function() {
+                console.log("Model box changed")
+                selectedModel = $(this).val();
+
+                // Check if the selected model is 'gpt-3.5-turbo'
+                if (selectedModel === 'dall-e-3') {
+                    // Hide the system-prompt select box
+                    $('#persona').hide();
+                } else {
+                    // Otherwise, show the system-prompt select box
+                    $('#persona').show();
+                }
+            }).trigger('change');
+        });
     </script>
     <script type="text/javascript">
         function readURL(input, form) {
@@ -93,6 +112,49 @@
                 }
             });
         }
+
+        function runImageAjax(form) {
+            var formData = new FormData($('#gptForm')[0]);
+            var formObject = Object.fromEntries(formData)
+            let userContent = $("#prompt").val();
+            let userDict = {role: "user", content: userContent};
+            response_history.push(userDict);
+            formData.append("responseHistory", response_history);
+            formData.append("imageData", image_data);
+            formData.append("imagePrompt", userContent);
+            formObject.responseHistory = response_history
+            formObject.imageData = image_data
+            formObject.imagePrompt = userContent
+            var formJSON = JSON.stringify(formObject);
+            console.log(formJSON)
+            $.ajax({
+                type: form.attr('method'),
+                url: form.attr('action'),
+                processData: false,
+                dataType: 'json',
+                data:formJSON,
+                contentType: 'application/json',
+                success: function(response) {
+                    $('#spinner').hide();
+                    console.log("Initial response history:")
+                    console.log(response_history)
+                    let imageURL = response.data[0].url
+                    var htmltext = `<img src='${imageURL}'>`
+                    console.log("HTML Text:")
+                    console.log(htmltext)
+                    $("#response").html(htmltext);
+                    if (response_history.length > 0) {
+                        $("#system-prompt").css({"pointer-events": "none", "touch-action": "none", "background": "#ede6e6"});
+                    }
+                },
+                error: function(xhr, textStatus, errorThrown) {
+                    // Error handling
+                    console.log("Error fetching data: " + textStatus + ": " + errorThrown + ": " + xhr);
+                    $('#spinner').hide();
+                }
+            });
+        }
+
     </script>
     <div class="container-fluid min-vh-100 d-flex flex-column">
         <div class="row flex-grow-1">
@@ -102,11 +164,13 @@
                     <div class="mb-3">
                         <label for="model">Model</label><br>
                         <select id="model" name="model" class="model-select form-control" aria-label="Open AI Model">
-                            <option selected value="gpt-4-1106-preview">GPT4</option>
+                            <option selected value="gpt-4-1106-preview">GPT4 Turbo</option>
+                            <option value="gpt-4">GPT 4 Classic</option>
                             <option value="gpt-3.5-turbo">GPT 3.5 Turbo</option>
+                            <option value="dall-e-3">DALL-E 3</option>
                         </select>
                     </div>
-                    <div class="mb-3">
+                    <div id="persona" class="mb-3">
                         <label for="system-prompt">Select a persona for GPT</label><br>
                         <select id="system-prompt" name="system-prompt" class="system-prompt-select form-control" aria-label="System persona">
                             <option selected value="1">General</option>
@@ -140,7 +204,11 @@
                             event.preventDefault();
                             $('#spinner').show();
                             var form = $(this);
-                            if ($("#file")[0].files[0]) {
+                            if (selectedModel === 'dall-e-3') {
+                                console.log("Asked to generate an image")
+                                runImageAjax(form)
+                            }
+                            else if ($("#file")[0].files[0]) {
                                 console.log("There are files")
                                 readURL($("#file")[0].files[0], form);
                             } else {
