@@ -79,6 +79,7 @@
                 contentType: 'application/json',
                 success: function(response) {
                     $('#spinner').hide();
+                    $('#prompt').val('');
                     console.log("Initial response history:")
                     console.log(response_history)
                     var htmltext = ""
@@ -155,11 +156,15 @@
             });
         }
 
+        function reloadPage(event) {
+            event.preventDefault();
+            location.reload();
+        }
     </script>
     <div class="container-fluid min-vh-100 d-flex flex-column">
         <div class="row flex-grow-1">
             <div class="col-md-3 bg-dark text-light p-3">
-                <h1 class="display-7">GPTFlask</h1>
+                <img class="mb-4" src="{{ url_for('static', filename='images/snowgoose-logo-horizantal-white-60h.png') }}">
                 <form id="gptForm" action="/get_response" method="post" enctype=multipart/form-data>
                     <div class="mb-3">
                         <label for="model">Model</label><br>
@@ -192,6 +197,7 @@
                     </div>
                     <div class="mb-3">
                         <input type="submit" class="btn btn-primary" value="Submit">
+                        <button type="button" class="btn btn-danger" onclick="reloadPage(event);">New Conversation</a>
                     </div>
                 </form>
                 <div class="position-absolute bottom-0 start-0 p-3">

@@ -5,6 +5,7 @@ import base64
 #import markdown
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_migrate import Migrate
 
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
@@ -18,6 +19,9 @@ app.config["SECRET_KEY"] = os.environb[b'FLASK_SECRET_KEY']
 # Initialize flask-sqlalchemy extension
 db = SQLAlchemy()
 
+# Initialize Flask-Migrate
+migrate = Migrate(app, db)
+
 # LoginManager is needed for our application
 # to be able to log in and out users
 login_manager = LoginManager()
@@ -26,10 +30,10 @@ login_manager.init_app(app)
 # Create user model
 class Users(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(250), unique=True,
-                         nullable=False)
-    password = db.Column(db.String(250),
-                         nullable=False)
+    username = db.Column(db.String(250), unique=True, nullable=False)
+    password = db.Column(db.String(250), nullable=False)
+    email = db.Column(db.String(250), nullable=True)
+    is_admin = db.Column(db.Integer, nullable=True)
     
 # Initialize app with extension
 db.init_app(app)
@@ -151,3 +155,36 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for("index"))
+
+@app.route('/settings')
+@login_required
+def settings():
+    if not current_user.is_admin:
+        return redirect(url_for('index'))
+    
+    users = Users.query.all()
+    return render_template('settings.html', users=users)
+
+@app.route("/settings/add_user", methods=["POST"])
+@login_required
+def add_user():
+    username = request.form.get("username")
+    password = request.form.get("password")
+    email = request.form.get("email")
+    is_admin = request.form.get("is_admin")
+
+    new_user = Users(username=username, password=password, email=email, is_admin=is_admin)
+    db.session.add(new_user)
+    db.session.commit()
+
+    return redirect(url_for("settings"))
+
+@app.route("/settings/delete_user/<int:id>", methods=["POST"])
+@login_required
+def delete_user(id):
+    user = Users.query.get(id)
+
+    db.session.delete(user)
+    db.session.commit()
+
+    return redirect(url_for("settings"))
