@@ -52,6 +52,25 @@
             reader.readAsDataURL(input);
         }
 
+        function updateConversationHTML() {
+            var htmltext = ""
+            for (const dict of response_history) {
+                        console.log(dict)
+                        console.log(dict.content)
+                        let htmlHead = `<div class="${dict.role}_response response">`;
+                        let htmlFoot = '</div>'
+                        if ($("#system-prompt").val() === "6") {
+                            htmlContent = marked.parse(dict.content)
+                        } else {
+                            htmlContent = dict.content.replace("```html", "").replace("```", "")
+                        }
+                        htmltext = htmltext + htmlHead + htmlContent + htmlFoot;
+                    }
+                    console.log("HTML Text:")
+                    console.log(htmltext)
+                    $("#response").html(htmltext);
+        }
+
         function runAjax(form) {
             var formData = new FormData($('#gptForm')[0]);
             var formObject = Object.fromEntries(formData)
@@ -87,6 +106,8 @@
                     response_history.push(responseDict)
                     console.log("Updated response history:")
                     console.log(response_history)
+                    console.log("Response from server:")
+                    console.log(response)
                     for (const dict of response_history) {
                         console.log(dict)
                         console.log(dict.content)
@@ -146,6 +167,7 @@
                     $("#response").html(htmltext);
                     if (response_history.length > 0) {
                         $("#system-prompt").css({"pointer-events": "none", "touch-action": "none", "background": "#ede6e6"});
+                        $("#model").css({"pointer-events": "none", "touch-action": "none", "background": "#ede6e6"});
                     }
                 },
                 error: function(xhr, textStatus, errorThrown) {
@@ -155,6 +177,57 @@
                 }
             });
         }
+
+        function populateHistory(id) {
+            $.ajax({
+                type: 'POST',
+                url: '/history/id/' + id,
+                dataType: 'json',
+                contentType: 'application/json',
+                success: function(response) {
+                    console.log("SUCCESSFULLY GRABBED HISTORY")
+                    let conversation_json = response.conversation
+                    let conversation = JSON.parse(conversation_json)
+                    $("#model").val(conversation.model).change()
+                    $("#model").css({"pointer-events": "none", "touch-action": "none", "background": "#ede6e6"});
+                    $("#system-prompt").val(conversation["system-prompt"]).change()
+                    $("#system-prompt").css({"pointer-events": "none", "touch-action": "none", "background": "#ede6e6"});
+                    console.log(conversation)
+                    response_history = conversation.responseHistory
+                    updateConversationHTML()
+                },
+                error: function(xhr, textStatus, errorThrown) {
+                    console.log("ERROR GRABBING HISTORY: " + textStatus + ": " + errorThrown + ": " + xhr)
+                }
+            });
+        }
+        function saveConversation() {
+            var formData = new FormData($('#gptForm')[0]);
+            var formObject = Object.fromEntries(formData)
+            formData.append("responseHistory", response_history);
+            formObject.responseHistory = response_history;
+            //console.log("Here is the form data for saving the conversation:")
+            //console.log(formObject)
+            var formJSON = JSON.stringify(formObject);
+            //console.log("Here is the JSON data for saving the conversation:")
+            //console.log(formJSON)
+            $.ajax({
+                type: 'POST',
+                url: '/add_conversation',
+                processData: false,
+                dataType: 'json',
+                data:formJSON,
+                contentType: 'application/json',
+                success: function(response) {
+                    $('#savedModal').modal('show')
+                },
+                error: function(xhr, textStatus, errorThrown) {
+                    // Error handling
+                    console.log("Error saving conversation: " + textStatus + ": " + errorThrown + ": " + xhr);
+                }
+            });
+        }
+        
 
         function reloadPage(event) {
             event.preventDefault();
@@ -197,16 +270,26 @@
                     </div>
                     <div class="mb-3">
                         <input type="submit" class="btn btn-primary" value="Submit">
-                        <button type="button" class="btn btn-danger" onclick="reloadPage(event);">New Conversation</a>
                     </div>
                 </form>
-                <div class="position-absolute bottom-0 start-0 p-3">
-                {% if current_user.is_authenticated %}
-                    <a href="/logout">Logout</a>
-                {% endif %}
+                <div class="btn-group-vertical" role="group">
+                        <button type="button" class="btn btn-light" onclick="reloadPage(event)">
+                            New Conversation
+                        </button>
+                        <button type="button" class="btn btn-light" onclick="saveConversation()">
+                            Save Conversation
+                        </button>
+                        <button type="button" class="btn btn-light" data-bs-toggle="modal" data-bs-target="#historyModal">
+                            History
+                        </button>
+                    {% if current_user.is_authenticated %}
+                        <a href="/logout" class="btn btn-light">
+                            Logout
+                        </a>
+                    {% endif %}
                 </div>
                     <script>
-                        $("form").submit(function(event) {
+                        $("#gptForm").submit(function(event) {
                             event.preventDefault();
                             $('#spinner').show();
                             var form = $(this);
@@ -236,7 +319,48 @@
                 </div>
             </div>
 
-</div>
+    </div>
+    <div class="modal fade" id="savedModal" tabindex="-1" aria-labelledby="savedModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="savedModalLabel">Conversation Saved</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                The conversation has been saved.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="historyModal" tabindex="-1" aria-labelledby="historyModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable modal-lg">
+            <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="historyModalLabel">Previous Conversations</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="list-group">
+                    {% for entry in history %}
+                      <a href="#" class="list-group-item list-group-item-action" onclick="populateHistory('{{ entry.id }}')">
+                        <strong>{{ entry.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</strong>
+                        <p>{{ entry.title | safe }}</p>
+                      </a>
+                    {% else %}
+                      <li class="list-group-item">No conversation history found.</li>
+                    {% endfor %}
+                    </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+            </div>
+        </div>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-HwwvtgBNo3bZJJLYd8oVXjrBZt8cqVSpeBNS5n7C8IVInixGAoxmnlMuBnhbgrkm" crossorigin="anonymous"></script>
 </body>
 </html>

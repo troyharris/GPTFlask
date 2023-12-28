@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for
 import openai
 import os
 import base64
-#import markdown
+from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_migrate import Migrate
@@ -34,6 +34,20 @@ class Users(UserMixin, db.Model):
     password = db.Column(db.String(250), nullable=False)
     email = db.Column(db.String(250), nullable=True)
     is_admin = db.Column(db.Integer, nullable=True)
+
+class ConversationHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    title = db.Column(db.Text, nullable=True)
+    conversation = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    # Represent the object when printed
+    def __repr__(self):
+        return f'<ConversationHistory {self.id}>'
+    
+    def toDict(self):
+       return dict(id=self.id, title=self.title, conversation=self.conversation)
     
 # Initialize app with extension
 db.init_app(app)
@@ -55,13 +69,13 @@ def allowed_file(filename):
 def index():
     if not current_user.is_authenticated:
         return redirect(url_for("login"))
-    return render_template('index.html')
+    
+    history = ConversationHistory.query.filter_by(user_id=current_user.id).order_by(ConversationHistory.timestamp.desc()).all()
+    return render_template('index.html', history=history)
 
 @app.route('/get_response', methods=['POST'])
 def get_response():
-    #print(request.get_json())
     request_json = request.get_json()
-    #print(request_json["responseHistory"])
     response_history = request_json["responseHistory"]
     system_prompt_code = request_json["system-prompt"]
     image_data = request_json["imageData"]
@@ -134,7 +148,59 @@ def get_response():
             max_tokens=1024
         )
         print(response)
-        return jsonify(response)
+        response_json = jsonify(response)
+        
+        #conversation_history_entry = ConversationHistory(
+        #    user_id=current_user.id,
+        #    conversation=response_json.get_data(as_text=True)  # Or however you want to format the content
+        #)
+        #db.session.add(conversation_history_entry)
+        #db.session.commit()
+        
+        return response_json
+
+@app.route('/history', methods=['GET'])
+@login_required
+def history():
+    history = ConversationHistory.query.filter_by(user_id=current_user.id).order_by(ConversationHistory.timestamp.desc()).all()
+    return render_template('history.html', history=history)
+
+@app.route('/history/id/<int:id>', methods=['POST'])
+@login_required
+def single_history(id):
+    conversation = ConversationHistory.query.get(id)
+    conversation_json = jsonify(conversation.toDict())
+    return conversation_json
+
+@app.route('/add_conversation', methods=['POST'])
+@login_required
+def add_conversation():
+    request_json = request.get_json()
+    #print(request_json)
+    #response_history = request_json["responseHistory"]
+    conversation_json = jsonify(request_json)
+    conversation_json_string = conversation_json.get_data(as_text=True)
+
+    messages = [{"role": "system", "content": "You are an expert at taking in OpenAI API JSON chat requests and coming up with a brief one sentance title for the chat history."}]
+    prompt = "Give me a short, one sentence title for this chat history: " + conversation_json_string
+    messages += [{"role": "user", "content": prompt}]
+
+    response =  openai.ChatCompletion.create(
+        model="gpt-3.5-turbo", 
+        messages=messages,
+        max_tokens=2048
+    )
+
+    title = response.choices[0].message.content
+
+    conversation_history_entry = ConversationHistory(
+        user_id=current_user.id,
+        title = title,
+        conversation=conversation_json_string  # Or however you want to format the content
+    )
+    db.session.add(conversation_history_entry)
+    db.session.commit()
+    return request_json
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -188,3 +254,11 @@ def delete_user(id):
     db.session.commit()
 
     return redirect(url_for("settings"))
+
+@app.route("/history/delete_all", methods=["GET", "POST"])
+@login_required
+def delete_all():
+    db.session.query(ConversationHistory).delete()
+    db.session.commit()
+
+    return redirect(url_for("history"))
