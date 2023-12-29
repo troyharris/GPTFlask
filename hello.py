@@ -156,7 +156,6 @@ def get_response():
     
     # If DALL-E 3 was selected, we use a different type of API call than the others
     if model == 'dall-e-3':
-        print("generate image")
         image_prompt = request_json["imagePrompt"]
         response = openai.Image.create(
             model="dall-e-3",
@@ -167,13 +166,19 @@ def get_response():
         )
         # DALL-E-3 returns a response that includes an image URL. The front-end knows what to do with it.
         return jsonify(response)
-    else:
-        # All models besides DALL-E 3 use the ChatCompletion API call
+    # If using the vision model, we need to set max_tokens to get a reasonable output.
+    elif model == 'gpt-4-vision-preview':
         response =  openai.ChatCompletion.create(
-            #model="gpt-4-1106-preview", 
             model=model,
             messages=messages,
-            max_tokens=4096
+            max_tokens=1024
+        )
+        return jsonify(response)
+    # If just a standard chat model, we simply pass it our model and messages object
+    else: 
+        response =  openai.ChatCompletion.create(
+            model=model,
+            messages=messages
         )
         return jsonify(response)
 
