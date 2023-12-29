@@ -210,8 +210,7 @@ def add_conversation():
     messages += [{"role": "user", "content": prompt}]
     response =  openai.ChatCompletion.create(
         model="gpt-3.5-turbo", 
-        messages=messages,
-        max_tokens=4096
+        messages=messages
     )
     title = response.choices[0].message.content
 
