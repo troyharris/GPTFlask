@@ -44,7 +44,7 @@
                       </div>
                       <div id="g_id_onload"
                           data-client_id="{{ config['GOOGLE_CLIENT_ID'] }}"
-                          data-login_uri="{{ url_for('google_login', _external=True, _scheme='https') }}"
+                          data-login_uri="{{ url_for('google_authorize', _external=True, _scheme='https') }}"
                           data-auto_prompt="false">
                       </div>
                       <div class="g_id_signin"
