@@ -234,7 +234,7 @@ def add_conversation():
     db.session.commit()
     return request_json
 
-@app.route('/login/google')
+@app.route('/login/google', methods=["GET", "POST"])
 def google_login():
     redirect_uri = url_for('google_authorize', _external=True, _scheme="https")
     return google.authorize_redirect(redirect_uri)
