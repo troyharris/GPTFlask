@@ -22,7 +22,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 app.config["GOOGLE_CLIENT_ID"] = os.getenv("GOOGLE_CLIENT_ID")
 app.config["GOOGLE_CLIENT_SECRET"] = os.getenv("GOOGLE_CLIENT_SECRET")
 # Ensure SESSION_COOKIE_SECURE is True in production
-app.config["SESSION_COOKIE_SECURE"] = False
+app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_PERMANENT"] = False
 
 # Get the Google OpenID configuration
@@ -239,7 +239,7 @@ def google_login():
     redirect_uri = url_for('google_authorize', _external=True, _scheme="https")
     return google.authorize_redirect(redirect_uri)
 
-@app.route('/login/google/authorize', methods=["POST"])
+@app.route('/login/google/authorize', methods=["GET", "POST"])
 def google_authorize():
     # Get the authorization token
     token = google.authorize_access_token()
