@@ -177,7 +177,7 @@ def get_response():
             #model="gpt-4-1106-preview", 
             model=model,
             messages=messages,
-            max_tokens=1024
+            max_tokens=4096
         )
         print(response)
         response_json = jsonify(response)
