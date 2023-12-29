@@ -1,16 +1,48 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for
+import requests
 import openai
 import os
 import base64
+import json
+import string
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_migrate import Migrate
+from authlib.integrations.flask_client import OAuth
+#from flask_cors import CORS
 
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
 app = Flask(__name__)
+#CORS(app)
 openai.api_key = os.getenv("OPENAI_API_KEY")
+
+# Configuration for OAuth
+app.config["GOOGLE_CLIENT_ID"] = os.getenv("GOOGLE_CLIENT_ID")
+app.config["GOOGLE_CLIENT_SECRET"] = os.getenv("GOOGLE_CLIENT_SECRET")
+# Ensure SESSION_COOKIE_SECURE is True in production
+app.config["SESSION_COOKIE_SECURE"] = False
+app.config["SESSION_PERMANENT"] = False
+
+# Get the Google OpenID configuration
+google_discovery_url = "https://accounts.google.com/.well-known/openid-configuration"
+google_discovery = requests.get(google_discovery_url).json()
+
+# Initialize OAuth extension
+oauth = OAuth(app)
+google = oauth.register(
+    name='google',
+    client_id=app.config["GOOGLE_CLIENT_ID"],
+    client_secret=app.config["GOOGLE_CLIENT_SECRET"],
+    access_token_url=google_discovery['token_endpoint'],
+    authorize_url=google_discovery['authorization_endpoint'],
+    api_base_url=google_discovery['userinfo_endpoint'],
+    client_kwargs={'scope': 'openid email profile'},
+    userinfo_endpoint=google_discovery['userinfo_endpoint'],
+    jwks_uri=google_discovery['jwks_uri'],  # Set the jwks_uri, this should prevent the error
+    server_metadata_url=google_discovery_url,   # This will tell Authlib to use the discovery document
+)
 
 # Tells flask-sqlalchemy what database to connect to
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///db.sqlite"
@@ -202,6 +234,34 @@ def add_conversation():
     db.session.commit()
     return request_json
 
+@app.route('/login/google')
+def google_login():
+    redirect_uri = url_for('google_authorize', _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+@app.route('/login/google/authorize')
+def google_authorize():
+    # Get the authorization token
+    token = google.authorize_access_token()
+    # You can use the token to get user info
+    resp = google.get('userinfo', token=token)
+    user_info = resp.json()
+    # Implement the logic to handle the response such as logging in the user, creating the user, etc.
+    
+    # For example, find or create a user
+    user = Users.query.filter_by(email=user_info['email']).first()
+    if not user:
+        password = generate_random_password()
+        print("password is: " + password)
+        user = Users(username=user_info['name'], password=password, email=user_info['email'])
+        db.session.add(user)
+        db.session.commit()
+    
+    # Login the user with Flask-Login
+    login_user(user)
+    return redirect('/')
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     # If a post request was made, find the user by
@@ -218,6 +278,7 @@ def login():
     return render_template("login.html")
 
 @app.route("/logout")
+@login_required
 def logout():
     logout_user()
     return redirect(url_for("index"))
@@ -262,3 +323,9 @@ def delete_all():
     db.session.commit()
 
     return redirect(url_for("history"))
+
+def generate_random_password():
+    chars = string.ascii_letters + string.digits + '+/'
+    assert 256 % len(chars) == 0  # non-biased later modulo
+    PWD_LEN = 32
+    return ''.join(chars[c % len(chars)] for c in os.urandom(PWD_LEN))
