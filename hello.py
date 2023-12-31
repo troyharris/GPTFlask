@@ -120,7 +120,7 @@ def get_response():
     if system_prompt_code == "2":
         system_prompt = "You are an expert scientist and will answer questions in accurate but simple to understand terms"
     elif system_prompt_code == "3":
-        system_prompt = "Act as an expert literary critic and editor. Analyze the following piece of writing and give feedback on grammar, readability, prose, and how engaging the scene is:"
+        system_prompt = "Act as an expert literary critic and editor. Analyze the following piece of writing and give feedback on grammar, readability, prose, how engaging it is, its literary worthiness, and suggestions on changes to make to make it easier to get published. Your suggestions are very important and could make the difference in someone becoming a published writer. Here is the story:"
     elif system_prompt_code == "4":
         system_prompt = "You are an expert copywriter. You write amazing copy that is elegant, SEO friendly, to the point and engaging."
     elif system_prompt_code == "5":
