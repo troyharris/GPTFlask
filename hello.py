@@ -18,7 +18,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 app.config["GOOGLE_CLIENT_ID"] = os.getenv("GOOGLE_CLIENT_ID")
 app.config["GOOGLE_CLIENT_SECRET"] = os.getenv("GOOGLE_CLIENT_SECRET")
 # Ensure SESSION_COOKIE_SECURE is True in production
-app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_SECURE"] = os.getenv("SESSION_COOKIE_SECURE")
 app.config["SESSION_PERMANENT"] = False
 
 # Get the Google OpenID configuration
@@ -101,6 +101,7 @@ def loader_user(user_id):
 @app.route('/')
 def index():
     if not current_user.is_authenticated:
+        print("current user is not authenticated")
         return redirect(url_for("login"))
     
     history = ConversationHistory.query.filter_by(user_id=current_user.id).order_by(ConversationHistory.timestamp.desc()).all()
@@ -138,7 +139,7 @@ def get_response():
     # If a file was uploaded, load the vision model no matter what and override the system prompt
     if image_data and image_data != '':
         print("I found a file")
-        prompt = request.form['prompt']
+        prompt = request_json['prompt']
         content = [
             {
                 "type": "text",
@@ -242,7 +243,6 @@ def google_authorize():
     user = Users.query.filter_by(email=user_info['email']).first()
     if not user:
         password = generate_random_password()
-        print("password is: " + password)
         user = Users(username=user_info['name'], password=password, email=user_info['email'])
         db.session.add(user)
         db.session.commit()
@@ -257,14 +257,20 @@ def login():
     # If a post request was made, find the user by
     # filtering for the username
     if request.method == "POST":
+        print("Getting the user")
         user = Users.query.filter_by(
             username=request.form.get("username")).first()
         # Check if the password entered is the
         # same as the user's password
         if user.password == request.form.get("password"):
+            print("User's password is correct")
             # Use the login_user method to log in the user
             login_user(user)
             return redirect(url_for("index"))
+        else:
+            print("invalid login")
+    else:
+        print("login method was not POST")
     return render_template("login.html")
 
 # Flask-login to log out user
