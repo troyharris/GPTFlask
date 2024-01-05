@@ -6,20 +6,28 @@ import base64
 import json
 import string
 from datetime import datetime
+from os import environ
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_migrate import Migrate
 from authlib.integrations.flask_client import OAuth
 
 app = Flask(__name__)
-openai.api_key = os.getenv("OPENAI_API_KEY")
+#openai.api_key = os.getenv("OPENAI_API_KEY")
+
+openai.api_key = environ.get("OPENAI_API_KEY")
 
 # Configuration for OAuth
-app.config["GOOGLE_CLIENT_ID"] = os.getenv("GOOGLE_CLIENT_ID")
-app.config["GOOGLE_CLIENT_SECRET"] = os.getenv("GOOGLE_CLIENT_SECRET")
+#app.config["GOOGLE_CLIENT_ID"] = os.getenv("GOOGLE_CLIENT_ID")
+#app.config["GOOGLE_CLIENT_SECRET"] = os.getenv("GOOGLE_CLIENT_SECRET")
+app.config["GOOGLE_CLIENT_ID"] = environ.get("GOOGLE_CLIENT_ID")
+app.config["GOOGLE_CLIENT_SECRET"] = environ.get("GOOGLE_CLIENT_SECRET")
 # Ensure SESSION_COOKIE_SECURE is True in production
-app.config["SESSION_COOKIE_SECURE"] = os.getenv("SESSION_COOKIE_SECURE")
+#app.config["SESSION_COOKIE_SECURE"] = os.getenv("SESSION_COOKIE_SECURE")
+#app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_COOKIE_SECURE"] = environ.get("SESSION_COOKIE_SECURE")
 app.config["SESSION_PERMANENT"] = False
+
 
 # Get the Google OpenID configuration
 google_discovery_url = "https://accounts.google.com/.well-known/openid-configuration"
@@ -41,14 +49,15 @@ google = oauth.register(
 )
 
 # Tells flask-sqlalchemy what database to connect to
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///db.sqlite"
+# app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///db.sqlite"
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://snowgoose:Sc0rch00@localhost:5432/snowgoose"
 # Enter a secret key
 app.config["SECRET_KEY"] = os.environb[b'FLASK_SECRET_KEY']
 # Initialize flask-sqlalchemy extension
 db = SQLAlchemy()
 
 # Initialize Flask-Migrate
-migrate = Migrate(app, db)
+migrate = Migrate(app, db, render_as_batch=True)
 
 # Initialize LoginManager for handling user authentication
 login_manager = LoginManager()
@@ -78,7 +87,20 @@ class ConversationHistory(db.Model):
     def toDict(self):
        return dict(id=self.id, title=self.title, conversation=self.conversation)
     
-# Initialize SQLAlchemy with app
+class Persona(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    prompt = db.Column(db.Text, nullable=False)
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    owner = db.relationship('Users', backref=db.backref('personas', lazy=True))
+
+class OutputFormat(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    prompt = db.Column(db.Text, nullable=False)
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    owner = db.relationship('Users', backref=db.backref('output_formats', lazy=True))
+
 db.init_app(app)
 # Create database within app context if needed
 with app.app_context():
@@ -105,32 +127,38 @@ def index():
         return redirect(url_for("login"))
     
     history = ConversationHistory.query.filter_by(user_id=current_user.id).order_by(ConversationHistory.timestamp.desc()).all()
-    return render_template('index.html', history=history)
+    personas = Persona.query.all()
+    output_formats = OutputFormat.query.all()
+    return render_template('index.html', history=history, personas=personas, output_formats=output_formats)
 
-@app.route('/get_response', methods=['POST'])
+@app.route('/chat', methods=['POST'])
 def get_response():
     request_json = request.get_json()
     response_history = request_json["responseHistory"]
     system_prompt_code = request_json["system-prompt"]
+    output_format_code = request_json["output-format"]
     image_data = request_json["imageData"]
     model = request_json["model"]
+    persona = Persona.query.get(system_prompt_code)
+    output_format = OutputFormat.query.get(output_format_code)
+    system_prompt = persona.prompt + " " + output_format.prompt
 
     # Translate system prompt id to system instructions for GPT
-    system_prompt = "You are a helpful assistant."
-    if system_prompt_code == "2":
-        system_prompt = "You are an expert scientist and will answer questions in accurate but simple to understand terms"
-    elif system_prompt_code == "3":
-        system_prompt = "Act as an expert literary critic and editor. Analyze the following piece of writing and give feedback on grammar, readability, prose, how engaging it is, its literary worthiness, and suggestions on changes to make to make it easier to get published. Your suggestions are very important and could make the difference in someone becoming a published writer. Here is the story:"
-    elif system_prompt_code == "4":
-        system_prompt = "You are an expert copywriter. You write amazing copy that is elegant, SEO friendly, to the point and engaging."
-    elif system_prompt_code == "5":
-        system_prompt = "You are a master of generating new ideas and brainstorming solutions. You think outside of the box and are very creative."
-    elif system_prompt_code == "6":
-        system_prompt = "You are an expert programmer. You write concise, easy to read code that is well commented. Use Markdown formatting."
-    elif system_prompt_code == "7":
-        system_prompt = "You are an expert at composing emails. You write your emails using proper grammar and punctuation. Your tone is friendly and professional but not overly formal."
-    if system_prompt_code != "6":
-        system_prompt = system_prompt + " Format your response as HTML using Bootstrap 5 HTML tags and code. Use hyperlinks to link to resources but only if helpful and possible. Don't use Markdown or wrap your response in markdown. Don't use ``` tags."
+    #system_prompt = "You are a helpful assistant."
+    #if system_prompt_code == "2":
+    #    system_prompt = "You are an expert scientist and will answer questions in accurate but simple to understand terms"
+    #elif system_prompt_code == "3":
+    #    system_prompt = "Act as an expert literary critic and editor. Analyze the following piece of writing and give feedback on grammar, readability, prose, how engaging it is, its literary worthiness, and suggestions on changes to make to make it easier to get published. Your suggestions are very important and could make the difference in someone becoming a published writer. Here is the story:"
+    #elif system_prompt_code == "4":
+    #    system_prompt = "You are an expert copywriter. You write amazing copy that is elegant, SEO friendly, to the point and engaging."
+    #elif system_prompt_code == "5":
+    #    system_prompt = "You are a master of generating new ideas and brainstorming solutions. You think outside of the box and are very creative."
+    #elif system_prompt_code == "6":
+    #    system_prompt = "You are an expert programmer. You write concise, easy to read code that is well commented. Use Markdown formatting."
+    #elif system_prompt_code == "7":
+    #    system_prompt = "You are an expert at composing emails. You write your emails using proper grammar and punctuation. Your tone is friendly and professional but not overly formal."
+    #if system_prompt_code != "6":
+    #    system_prompt = system_prompt + " Format your response as HTML using Bootstrap 5 HTML tags and code. Use hyperlinks to link to resources but only if helpful and possible. Don't use Markdown or wrap your response in markdown. Don't use ``` tags."
  
     # Create the message object and populate it with any chat history
     messages = [{"role": "system", "content": system_prompt}]
@@ -177,6 +205,7 @@ def get_response():
         return jsonify(response)
     # If just a standard chat model, we simply pass it our model and messages object
     else: 
+        print(messages)
         response =  openai.ChatCompletion.create(
             model=model,
             messages=messages
@@ -324,6 +353,77 @@ def delete_all():
     db.session.commit()
 
     return redirect(url_for("history"))
+
+# Personas page
+@app.route('/personas')
+@login_required
+def personas():
+    if not current_user.is_admin:
+        return redirect(url_for('index'))
+    
+    personas = Persona.query.all()
+    return render_template('personas.html', personas=personas)
+
+# Add a persona from the personas page
+@app.route("/personas/add_persona", methods=["POST"])
+@login_required
+def add_persona():
+    name = request.form.get("name")
+    prompt = request.form.get("prompt")
+    owner = request.form.get("owner")
+
+    new_persona = Persona(name=name, prompt=prompt)
+    db.session.add(new_persona)
+    db.session.commit()
+
+    return redirect(url_for("personas"))
+
+# Delete a user from the settings page
+@app.route("/personas/delete_persona/<int:id>", methods=["POST"])
+@login_required
+def delete_persona(id):
+    persona = Persona.query.get(id)
+
+    db.session.delete(persona)
+    db.session.commit()
+
+    return redirect(url_for("personas"))
+
+# Output Format page
+@app.route('/output_formats')
+@login_required
+def output_formats():
+    if not current_user.is_admin:
+        return redirect(url_for('index'))
+    
+    output_formats   = OutputFormat.query.all()
+    return render_template('output_formats.html', output_formats=output_formats)
+
+# Add an output format from the output formats page
+@app.route("/output_formats/add_output_format", methods=["POST"])
+@login_required
+def add_output_format():
+    name = request.form.get("name")
+    prompt = request.form.get("prompt")
+    owner = request.form.get("owner")
+
+    new_output_format = OutputFormat(name=name, prompt=prompt)
+    db.session.add(new_output_format)
+    db.session.commit()
+
+    return redirect(url_for("output_formats"))
+
+# Delete an output format from the output formats page
+@app.route("/output_formats/delete_output_format/<int:id>", methods=["POST"])
+@login_required
+def delete_output_format(id):
+    output_format = OutputFormat.query.get(id)
+
+    db.session.delete(output_format)
+    db.session.commit()
+
+    return redirect(url_for("output_formats"))
+
 
 # When an account is created via Google, a password still needs to be created but doesn't need to be used.
 def generate_random_password():

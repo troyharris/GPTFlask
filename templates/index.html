@@ -38,8 +38,7 @@
                 }
             }).trigger('change');
         });
-    </script>
-    <script type="text/javascript">
+
         function readURL(input, form) {
             var reader = new FileReader();
             reader.onload = function (e) {
@@ -83,11 +82,6 @@
             formData.append("imageData", image_data);
             formObject.responseHistory = response_history
             formObject.imageData = image_data
-            /*
-            for (var [key, value] of formData.entries()) { 
-            console.log(key, value);
-            }
-            */
             var formJSON = JSON.stringify(formObject);
             console.log(formJSON)
             $.ajax({
@@ -114,7 +108,7 @@
                         console.log(dict.content)
                         let htmlHead = `<div class="${dict.role}_response response">`;
                         let htmlFoot = '</div>'
-                        if ($("#system-prompt").val() === "6") {
+                        if ($("#output-format").val() === "2") {
                             htmlContent = marked.parse(dict.content)
                         } else {
                             htmlContent = dict.content.replace("```html", "").replace("```", "")
@@ -239,7 +233,7 @@
         <div class="row flex-grow-1">
             <div class="col-md-3 bg-dark text-light p-3">
                 <img class="mb-4" src="{{ url_for('static', filename='images/snowgoose-logo-horizantal-white-60h.png') }}">
-                <form id="gptForm" action="/get_response" method="post" enctype=multipart/form-data>
+                <form id="gptForm" action="/chat" method="post" enctype=multipart/form-data>
                     <div class="mb-3">
                         <label for="model">Model</label><br>
                         <select id="model" name="model" class="model-select form-control" aria-label="Open AI Model">
@@ -252,13 +246,17 @@
                     <div id="persona" class="mb-3">
                         <label for="system-prompt">Select a persona for GPT</label><br>
                         <select id="system-prompt" name="system-prompt" class="system-prompt-select form-control" aria-label="System persona">
-                            <option selected value="1">General</option>
-                            <option value="2">Scientist</option>
-                            <option value="3">Editor & Literary Critic</option>
-                            <option value="4">Copywriter</option>
-                            <option value="5">Idea Generator/Brainstorm</option>
-                            <option value="6">Coder</option>
-                            <option value="7">Email Composer</option>
+                        {% for persona in personas %}
+                            <option value="{{ persona.id }}">{{ persona.name }}</option>
+                        {% endfor %}
+                        </select>
+                    </div>
+                    <div id="outputFormat" class="mb-3">
+                        <label for="output-format">Select a persona for GPT</label><br>
+                        <select id="output-format" name="output-format" class="output-format-select form-control" aria-label="Output format">
+                        {% for output_format in output_formats %}
+                            <option value="{{ output_format.id }}">{{ output_format.name }}</option>
+                        {% endfor %}
                         </select>
                     </div>
                     <div class="mb-3">

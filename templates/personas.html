@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+    <title>Login</title>
+  </head>
+  <body>
+    <script type="text/javascript">
+        function confirmDelete() {
+            return confirm("Are you sure you want to delete this user?");
+        }
+    </script>
+    <div class="container text-center">
+        <div class="row justify-content-center align-items-center">
+            <div class="col-8">
+                <h2>Add Persona</h2>
+                <form method="post" action="{{ url_for('add_persona') }}">
+                    <input type="text" name="name" placeholder="Name">
+                    <input type="textarea" name="prompt" placeholder="Prompt">
+                    <input type="checkbox" name="owner"> Public?
+                    <button type="submit">Add Persona</button>
+                </form>
+                <table class="table table-bordered table-striped">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Prompt</th>
+                            <th>Owner</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Use Jinja2 templating to loop through the users from the context -->
+                        {% for persona in personas %}
+                        <tr>
+                            <td>{{ persona.id }}</td>
+                            <td>{{ persona.name }}</td>
+                            <td>{{ persona.prompt }}</td>
+                            <td>{{ persona.owner }}</td>
+                            <td>
+                                <form method="post" action="{{ url_for('delete_persona', id=persona.id) }}" onsubmit="return confirmDelete()">
+                                    <button type="submit">Delete Persona</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+  </body>
+</html>
