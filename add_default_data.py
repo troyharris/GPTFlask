@@ -3,6 +3,8 @@ from psycopg2 import sql
 from dotenv import load_dotenv
 from os import environ
 
+load_dotenv()
+
 # Database connection parameters
 dbname = environ.get("POSTGRES_DB")
 user = environ.get("POSTGRES_USER")

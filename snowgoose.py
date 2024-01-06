@@ -99,13 +99,19 @@ class Persona(db.Model):
     owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     owner = db.relationship('Users', backref=db.backref('personas', lazy=True))
 
-# Output format
+# Output format model
 class OutputFormat(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     prompt = db.Column(db.Text, nullable=False)
     owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     owner = db.relationship('Users', backref=db.backref('output_formats', lazy=True))
+
+# API Key model
+class APIKey(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    key = db.Column(db.String(255), nullable=False)
 
 db.init_app(app)
 
@@ -171,37 +177,6 @@ def index():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    #request_json = request.get_json()
-    #response_history = request_json["responseHistory"]
-    #system_prompt_code = request_json["system-prompt"]
-    #output_format_code = request_json["output-format"]
-    #image_data = request_json["imageData"]
-    #model = request_json["model"]
-    #persona = Persona.query.get(system_prompt_code)
-    #output_format = OutputFormat.query.get(output_format_code)
-    #system_prompt = persona.prompt + " " + output_format.prompt
-
-    # Translate system prompt id to system instructions for GPT
-    #system_prompt = "You are a helpful assistant."
-    #if system_prompt_code == "2":
-    #    system_prompt = "You are an expert scientist and will answer questions in accurate but simple to understand terms"
-    #elif system_prompt_code == "3":
-    #    system_prompt = "Act as an expert literary critic and editor. Analyze the following piece of writing and give feedback on grammar, readability, prose, how engaging it is, its literary worthiness, and suggestions on changes to make to make it easier to get published. Your suggestions are very important and could make the difference in someone becoming a published writer. Here is the story:"
-    #elif system_prompt_code == "4":
-    #    system_prompt = "You are an expert copywriter. You write amazing copy that is elegant, SEO friendly, to the point and engaging."
-    #elif system_prompt_code == "5":
-    #    system_prompt = "You are a master of generating new ideas and brainstorming solutions. You think outside of the box and are very creative."
-    #elif system_prompt_code == "6":
-    #    system_prompt = "You are an expert programmer. You write concise, easy to read code that is well commented. Use Markdown formatting."
-    #elif system_prompt_code == "7":
-    #    system_prompt = "You are an expert at composing emails. You write your emails using proper grammar and punctuation. Your tone is friendly and professional but not overly formal."
-    #if system_prompt_code != "6":
-    #    system_prompt = system_prompt + " Format your response as HTML using Bootstrap 5 HTML tags and code. Use hyperlinks to link to resources but only if helpful and possible. Don't use Markdown or wrap your response in markdown. Don't use ``` tags."
- 
-    # Create the message object and populate it with any chat history
-    #messages = [{"role": "system", "content": system_prompt}]
-    #messages += response_history
-
     request_dict = openai_request(request)
 
     # If a file was uploaded, load the vision model no matter what and override the system prompt
@@ -231,27 +206,7 @@ def chat():
             max_tokens=1024
         )
         return jsonify(response)
-    
-    # If DALL-E 3 was selected, we use a different type of API call than the others
-    #elif request_dict["model"] == 'dall-e-3':
-    #    prompt = request_dict["prompt"]
-    #    response = openai.Image.create(
-    #        model="dall-e-3",
-    #        prompt=prompt,
-    #        size="1024x1024",
-    #        quality="standard",
-    #        n=1
-    #    )
-        # DALL-E-3 returns a response that includes an image URL. The front-end knows what to do with it.
-    #    return jsonify(response)
-    # If using the vision model, we need to set max_tokens to get a reasonable output.
-    #elif request_dict["model"] == 'gpt-4-vision-preview':
-    #    response =  openai.ChatCompletion.create(
-    #        model=request_dict["model"],
-    #        messages=request_dict["messages"],
-    #        max_tokens=1024
-    #    )
-    #    return jsonify(response)
+
     # If just a standard chat model, we simply pass it our model and messages object
     else: 
         response =  openai.ChatCompletion.create(
