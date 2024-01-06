@@ -1,12 +1,14 @@
 import psycopg2
 from psycopg2 import sql
+from dotenv import load_dotenv
+from os import environ
 
 # Database connection parameters
-dbname = 'snowgoose'
-user = 'snowgoose'
-password = 'Sc0rch00'
-host = 'localhost'
-port = '5432'
+dbname = environ.get("POSTGRES_DB")
+user = environ.get("POSTGRES_USER")
+password = environ.get("POSTGRES_PASSWORD")
+host = environ.get("POSTGRES_HOST")
+port = environ.get("POSTGRES_PORT")
 
 # Default records for each table
 defaults = [

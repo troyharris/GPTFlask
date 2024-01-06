@@ -37,6 +37,13 @@
                     $('#persona').show();
                 }
             }).trigger('change');
+
+            $('#model').change(function() {
+                // Determine the action based on the selected option
+                var formAction = $(this).val() === 'dall-e-3' ? '/dalle' : '/chat';
+                // Update the form's action attribute
+                $('#gptForm').attr('action', formAction);
+            });
         });
 
         function readURL(input, form) {

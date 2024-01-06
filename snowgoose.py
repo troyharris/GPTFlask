@@ -13,18 +13,14 @@ from flask_migrate import Migrate
 from authlib.integrations.flask_client import OAuth
 
 app = Flask(__name__)
-#openai.api_key = os.getenv("OPENAI_API_KEY")
 
+# Get OpenAI's API key from the .env file
 openai.api_key = environ.get("OPENAI_API_KEY")
 
-# Configuration for OAuth
-#app.config["GOOGLE_CLIENT_ID"] = os.getenv("GOOGLE_CLIENT_ID")
-#app.config["GOOGLE_CLIENT_SECRET"] = os.getenv("GOOGLE_CLIENT_SECRET")
+# Configuration for Google OAuth
 app.config["GOOGLE_CLIENT_ID"] = environ.get("GOOGLE_CLIENT_ID")
 app.config["GOOGLE_CLIENT_SECRET"] = environ.get("GOOGLE_CLIENT_SECRET")
 # Ensure SESSION_COOKIE_SECURE is True in production
-#app.config["SESSION_COOKIE_SECURE"] = os.getenv("SESSION_COOKIE_SECURE")
-#app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_COOKIE_SECURE"] = environ.get("SESSION_COOKIE_SECURE")
 app.config["SESSION_PERMANENT"] = False
 
@@ -48,11 +44,17 @@ google = oauth.register(
     server_metadata_url=google_discovery_url,
 )
 
-# Tells flask-sqlalchemy what database to connect to
-# app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///db.sqlite"
-app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://snowgoose:Sc0rch00@localhost:5432/snowgoose"
-# Enter a secret key
+# Grabs PostGreSQL info and connects
+dbname = environ.get("POSTGRES_DB")
+user = environ.get("POSTGRES_USER")
+password = environ.get("POSTGRES_PASSWORD")
+host = environ.get("POSTGRES_HOST")
+port = environ.get("POSTGRES_PORT")
+app.config["SQLALCHEMY_DATABASE_URI"] = f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
+
+# Secret key from .env
 app.config["SECRET_KEY"] = os.environb[b'FLASK_SECRET_KEY']
+
 # Initialize flask-sqlalchemy extension
 db = SQLAlchemy()
 
@@ -63,7 +65,9 @@ migrate = Migrate(app, db, render_as_batch=True)
 login_manager = LoginManager()
 login_manager.init_app(app)
 
-# Define User model
+
+# Models
+# User model
 class Users(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(250), unique=True, nullable=False)
@@ -71,7 +75,7 @@ class Users(UserMixin, db.Model):
     email = db.Column(db.String(250), nullable=True)
     is_admin = db.Column(db.Integer, nullable=True)
 
-#Define ConversationHistory model (for storing conversations)
+#ConversationHistory model (for storing conversations)
 class ConversationHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -86,7 +90,8 @@ class ConversationHistory(db.Model):
     # Get a dict of the ConversationHistory object
     def toDict(self):
        return dict(id=self.id, title=self.title, conversation=self.conversation)
-    
+
+# Persona Model (sets the OpenAI system prompt)    
 class Persona(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
@@ -94,6 +99,7 @@ class Persona(db.Model):
     owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     owner = db.relationship('Users', backref=db.backref('personas', lazy=True))
 
+# Output format
 class OutputFormat(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
@@ -102,6 +108,7 @@ class OutputFormat(db.Model):
     owner = db.relationship('Users', backref=db.backref('output_formats', lazy=True))
 
 db.init_app(app)
+
 # Create database within app context if needed
 with app.app_context():
     db.create_all()
@@ -120,6 +127,37 @@ def loader_user(user_id):
 #    return '.' in filename and \
 #           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
+def openai_request(request):
+    request_json = request.get_json()
+    response_history = request_json["responseHistory"]
+    system_prompt_code = request_json["system-prompt"]
+    output_format_code = request_json["output-format"]
+    image_data = request_json["imageData"]
+    model = request_json["model"]
+    persona = Persona.query.get(system_prompt_code)
+    output_format = OutputFormat.query.get(output_format_code)
+    system_prompt = persona.prompt + " " + output_format.prompt
+    prompt = request_json["prompt"]
+    messages = [{"role": "system", "content": system_prompt}]
+    messages += response_history
+
+    # Create a dictionary with the local variables
+    request_dict = {
+        "response_history": response_history,
+        "system_prompt_code": system_prompt_code,
+        "output_format_code": output_format_code,
+        "image_data": image_data,
+        "model": model,
+        "persona": persona,
+        "output_format": output_format,
+        "system_prompt": system_prompt,
+        "prompt": prompt,
+        "messages": messages
+    }
+    return request_dict
+
+# Routing
 @app.route('/')
 def index():
     if not current_user.is_authenticated:
@@ -132,16 +170,16 @@ def index():
     return render_template('index.html', history=history, personas=personas, output_formats=output_formats)
 
 @app.route('/chat', methods=['POST'])
-def get_response():
-    request_json = request.get_json()
-    response_history = request_json["responseHistory"]
-    system_prompt_code = request_json["system-prompt"]
-    output_format_code = request_json["output-format"]
-    image_data = request_json["imageData"]
-    model = request_json["model"]
-    persona = Persona.query.get(system_prompt_code)
-    output_format = OutputFormat.query.get(output_format_code)
-    system_prompt = persona.prompt + " " + output_format.prompt
+def chat():
+    #request_json = request.get_json()
+    #response_history = request_json["responseHistory"]
+    #system_prompt_code = request_json["system-prompt"]
+    #output_format_code = request_json["output-format"]
+    #image_data = request_json["imageData"]
+    #model = request_json["model"]
+    #persona = Persona.query.get(system_prompt_code)
+    #output_format = OutputFormat.query.get(output_format_code)
+    #system_prompt = persona.prompt + " " + output_format.prompt
 
     # Translate system prompt id to system instructions for GPT
     #system_prompt = "You are a helpful assistant."
@@ -161,13 +199,16 @@ def get_response():
     #    system_prompt = system_prompt + " Format your response as HTML using Bootstrap 5 HTML tags and code. Use hyperlinks to link to resources but only if helpful and possible. Don't use Markdown or wrap your response in markdown. Don't use ``` tags."
  
     # Create the message object and populate it with any chat history
-    messages = [{"role": "system", "content": system_prompt}]
-    messages += response_history
+    #messages = [{"role": "system", "content": system_prompt}]
+    #messages += response_history
+
+    request_dict = openai_request(request)
 
     # If a file was uploaded, load the vision model no matter what and override the system prompt
-    if image_data and image_data != '':
+    if request_dict["image_data"] and request_dict["image_data"] != '':
         print("I found a file")
-        prompt = request_json['prompt']
+        prompt = request_dict['prompt']
+        image_data = request_dict["image_data"]
         content = [
             {
                 "type": "text",
@@ -178,39 +219,61 @@ def get_response():
                 "image_url": f"{image_data}"
             }
         ]
-        model='gpt-4-vision-preview'
+        request_dict["model"]='gpt-4-vision-preview'
         system_prompt = 'You are a helpful assistant that can describe an image in detail.'
         messages = [{"role": "system", "content": system_prompt}]
         messages += [{"role": "user", "content": content}]
-    
-    # If DALL-E 3 was selected, we use a different type of API call than the others
-    if model == 'dall-e-3':
-        image_prompt = request_json["imagePrompt"]
-        response = openai.Image.create(
-            model="dall-e-3",
-            prompt=image_prompt,
-            size="1024x1024",
-            quality="standard",
-            n=1
-        )
-        # DALL-E-3 returns a response that includes an image URL. The front-end knows what to do with it.
-        return jsonify(response)
-    # If using the vision model, we need to set max_tokens to get a reasonable output.
-    elif model == 'gpt-4-vision-preview':
+        request_dict["messages"] = messages
+
         response =  openai.ChatCompletion.create(
-            model=model,
-            messages=messages,
+            model=request_dict["model"],
+            messages=request_dict["messages"],
             max_tokens=1024
         )
         return jsonify(response)
+    
+    # If DALL-E 3 was selected, we use a different type of API call than the others
+    #elif request_dict["model"] == 'dall-e-3':
+    #    prompt = request_dict["prompt"]
+    #    response = openai.Image.create(
+    #        model="dall-e-3",
+    #        prompt=prompt,
+    #        size="1024x1024",
+    #        quality="standard",
+    #        n=1
+    #    )
+        # DALL-E-3 returns a response that includes an image URL. The front-end knows what to do with it.
+    #    return jsonify(response)
+    # If using the vision model, we need to set max_tokens to get a reasonable output.
+    #elif request_dict["model"] == 'gpt-4-vision-preview':
+    #    response =  openai.ChatCompletion.create(
+    #        model=request_dict["model"],
+    #        messages=request_dict["messages"],
+    #        max_tokens=1024
+    #    )
+    #    return jsonify(response)
     # If just a standard chat model, we simply pass it our model and messages object
     else: 
-        print(messages)
         response =  openai.ChatCompletion.create(
-            model=model,
-            messages=messages
+            model=request_dict["model"],
+            messages=request_dict["messages"]
         )
         return jsonify(response)
+    
+
+@app.route('/dalle', methods=['POST'])
+def dalle():
+    request_dict = openai_request(request)
+    prompt = request_dict["prompt"]
+    response = openai.Image.create(
+        model="dall-e-3",
+        prompt=prompt,
+        size="1024x1024",
+        quality="standard",
+        n=1
+    )
+    # DALL-E-3 returns a response that includes an image URL. The front-end knows what to do with it.
+    return jsonify(response)
 
 # Routes to retrieve saved conversations
 @app.route('/history', methods=['GET'])
