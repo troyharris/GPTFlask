@@ -502,6 +502,21 @@ def api_history(user):
         histories.append(h.toDict())
     return jsonify(histories)
 
+@app.route("/api/history/delete/<int:id>", methods=["POST"])
+@require_clerk_session
+def api_delete_history(id, user):
+    try:
+        chat = ConversationHistory.query.get(id)
+        if chat.user_id == user.id:
+            db.session.delete(chat)
+            db.session.commit()
+            return jsonify({"message": "Successfully deleted history"}), 201
+
+        return jsonify({"message": "Error: Record user did not match logged in user"}), 500
+    except Exception as e:
+        print(e)
+        return jsonify({"message": "An unexpected error occurred."}), 500
+
 # Routes to retrieve saved conversations
 @app.route('/history', methods=['GET'])
 @login_required
