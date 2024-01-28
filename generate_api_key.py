@@ -15,8 +15,8 @@ def generate_api_key(length=64):
     :return: A string representing the secure API key.
     """
     # Define the characters that can be used in the API key, excluding quotes
-    safe_punctuation = string.punctuation.replace('"', '').replace("'", '')
-    characters = string.ascii_letters + string.digits + safe_punctuation
+    #safe_punctuation = string.punctuation.replace('"', '').replace("'", '')
+    characters = string.ascii_letters + string.digits
     
     # Generate a secure random string of the specified length
     secure_key = ''.join(secrets.choice(characters) for i in range(length))
