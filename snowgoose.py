@@ -520,6 +520,20 @@ def save_chat(user):
     db.session.commit()
     return jsonify({"message": f"Successfully saved chat: {title}"}), 201
 
+@app.route('/api/dalle', methods=['POST'])
+def api_dalle():
+    request_dict = openai_request(request)
+    prompt = request_dict["prompt"]
+    response = openai.Image.create(
+        model="dall-e-3",
+        prompt=prompt,
+        size="1024x1024",
+        quality="standard",
+        n=1
+    )
+    # DALL-E-3 returns a response that includes an image URL. The front-end knows what to do with it.
+    return jsonify(response)
+
 @app.route('/api/history', methods=['POST'])
 @require_clerk_session
 def api_history(user):
