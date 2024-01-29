@@ -78,6 +78,23 @@ class Users(UserMixin, db.Model):
     email = db.Column(db.String(250), nullable=True)
     is_admin = db.Column(db.Integer, nullable=True)
 
+class Model(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    api_name = db.Column(db.String(255), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    is_vision = db.Column(db.String(255), nullable=False, default=False)
+    is_image_generation = db.Column(db.String(255), nullable=False, default=False)
+
+    def toDict(self):
+        model_obj = {
+            "id": self.id,
+            "api_name": self.api_name,
+            "name": self.name,
+            "is_vision": string_to_boolean(self.is_vision),
+            "is_image_generation": string_to_boolean(self.is_image_generation)
+        }
+        return model_obj
+
 #ConversationHistory model (for storing conversations)
 class ConversationHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -245,7 +262,10 @@ def openai_request(request):
     model = request_json["model"]
     persona = Persona.query.get(system_prompt_code)
     output_format = OutputFormat.query.get(output_format_code)
-    system_prompt = persona.prompt + " " + output_format.prompt
+    # Persona and Output Format might be blank if its DALLE or Vision.
+    system_prompt = ""
+    if persona and output_format:
+        system_prompt = persona.prompt + " " + output_format.prompt
     messages = [{"role": "system", "content": system_prompt}]
     messages += response_history
 
@@ -400,7 +420,14 @@ def api_delete_persona(id):
 # Models API page
 @app.route('/api/models')
 def api_models():
-    return models()
+    models = Model.query.all()
+    return models_json(models)
+
+# Models API page
+@app.route('/api/models/api_name/<string:api_name>')
+def api_model_api_name(api_name):
+    model = Model.query.filter_by(api_name=api_name).first()
+    return jsonify(model.toDict())
 
 # Output Formats API page
 @app.route('/api/output-formats')
@@ -761,6 +788,12 @@ def models():
     ]
     return json.dumps(models)
 
+def models_json(models):
+    models_array = []
+    for model in models:
+        models_array.append(model.toDict())
+    return json.dumps(models_array)
+
 def output_formats_json(output_formats):
     output_formats_array = []
     for output_format in output_formats:
@@ -772,3 +805,10 @@ def output_formats_json(output_formats):
         }
         output_formats_array.append(output_format_obj)
     return json.dumps(output_formats_array)
+
+def string_to_boolean(input_string):
+    # Check if the input string matches "true" or "True"
+    if input_string in ["true", "True"]:
+        return True
+    else:
+        return False

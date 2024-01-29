@@ -25,6 +25,10 @@ defaults = [
     "INSERT INTO output_format (name, prompt) VALUES ('HTML/Bootstrap 5', 'Format your response as HTML using Bootstrap 5 HTML tags and code. Use hyperlinks to link to resources but only if helpful and possible. Do not use Markdown or wrap your response in markdown. Do not use ``` tags.')",
     "INSERT INTO output_format (name, prompt) VALUES ('Markdown', 'Format your response in Markdown format.')",
     "INSERT INTO output_format (name, prompt) VALUES ('Plain Text', 'Format your response in plain text. Do not use Markdown or HTML.')",
+    "INSERT INTO model (api_name, name, is_vision, is_image_generation) VALUES ('gpt-4-turbo-preview', 'GPT-4 Turbo', true, false)",
+    "INSERT INTO model (api_name, name, is_vision, is_image_generation) VALUES ('gpt-4', 'GPT-4 Classic', false, false)",
+    "INSERT INTO model (api_name, name, is_vision, is_image_generation) VALUES ('gpt-3.5-turbo', 'GPT 3.5 Turbo', false, false)",
+    "INSERT INTO model (api_name, name, is_vision, is_image_generation) VALUES ('dall-e-3', 'DALL-E-3', false, true)",
 ]
 
 # Connect to the PostgreSQL database
