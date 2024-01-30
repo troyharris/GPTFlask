@@ -24,7 +24,7 @@ app.config["SESSION_PERMANENT"] = False
 # Grabs PostGreSQL info and connects
 dbname = environ.get("POSTGRES_DB")
 user = environ.get("POSTGRES_USER")
-password = environ.get("POSTGRES_PASSWORD")
+password = environ.get("POSTGRES_PASS")
 host = environ.get("POSTGRES_HOST")
 port = environ.get("POSTGRES_PORT")
 app.config["SQLALCHEMY_DATABASE_URI"] = f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
