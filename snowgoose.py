@@ -45,22 +45,22 @@ class Users(db.Model):
     username = db.Column(db.String(250), unique=True, nullable=False)
     password = db.Column(db.String(250), nullable=False)
     email = db.Column(db.String(250), nullable=True)
-    is_admin = db.Column(db.Integer, nullable=True)
+    is_admin = db.Column(db.Boolean, nullable=True)
 
 class Model(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     api_name = db.Column(db.String(255), nullable=False)
     name = db.Column(db.String(255), nullable=False)
-    is_vision = db.Column(db.String(255), nullable=False, default=False)
-    is_image_generation = db.Column(db.String(255), nullable=False, default=False)
+    is_vision = db.Column(db.Boolean, nullable=False, default=False)
+    is_image_generation = db.Column(db.Boolean, nullable=False, default=False)
 
     def toDict(self):
         model_obj = {
             "id": self.id,
             "api_name": self.api_name,
             "name": self.name,
-            "is_vision": string_to_boolean(self.is_vision),
-            "is_image_generation": string_to_boolean(self.is_image_generation)
+            "is_vision": self.is_vision,
+            "is_image_generation": self.is_image_generation
         }
         return model_obj
 
