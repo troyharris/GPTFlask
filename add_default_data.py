@@ -14,7 +14,7 @@ port = environ.get("POSTGRES_PORT")
 
 # Default records for each table
 defaults = [
-    "INSERT INTO users (username, password, email, is_admin) VALUES ('admin', 'snowgoose', 'admin@example.com', 1)",
+    "INSERT INTO users (username, password, email, is_admin) VALUES ('admin', 'snowgoose', 'admin@example.com', true)",
     "INSERT INTO render_type (name) VALUES ('markdown')",
     "INSERT INTO render_type (name) VALUES ('html')",
     "INSERT INTO persona (name, prompt) VALUES ('General', 'You are a helpful assistant')",
