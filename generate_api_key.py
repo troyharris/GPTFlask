@@ -29,7 +29,7 @@ def insert_api_key(name, key):
     # Database connection parameters
     dbname = environ.get("POSTGRES_DB")
     user = environ.get("POSTGRES_USER")
-    password = environ.get("POSTGRES_PASSWORD")
+    password = environ.get("POSTGRES_PASS")
     host = environ.get("POSTGRES_HOST")
     port = environ.get("POSTGRES_PORT")
 
