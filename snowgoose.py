@@ -126,12 +126,30 @@ class OutputFormat(db.Model):
     prompt = db.Column(db.Text, nullable=False)
     owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     owner = db.relationship('Users', backref=db.backref('output_formats', lazy=True))
+    render_type_id = db.Column(db.Integer, db.ForeignKey('render_type.id'), nullable=True)
+    render_type = db.relationship('RenderType', backref=db.backref('output_formats', lazy=True))
+
+    def toDict(self):
+        render_type = RenderType.query.get(self.render_type_id)
+        output_format_obj = {
+            "id": self.id,
+            "name": self.name,
+            "prompt": self.prompt,
+            "owner_id": self.owner_id,
+            "render_type_name": render_type.name
+        }
+        return output_format_obj
 
 # API Key model
 class APIKey(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     key = db.Column(db.String(255), nullable=False)
+
+# Render Types
+class RenderType(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
 
 db.init_app(app)
 
@@ -439,6 +457,17 @@ def api_output_formats():
     output_formats = OutputFormat.query.all()
     # personas_json = json.dumps([ob.__dict__ for ob in personas])
     return output_formats_json(output_formats)
+
+@app.route('/api/output-formats/<int:id>', methods=["GET"])
+@require_api_key
+def api_output_format(id):
+    #if not current_user.is_admin:
+    #    return redirect(url_for('index'))
+    
+    output_format = OutputFormat.query.get(id)
+    output_format_obj = output_format.toDict()
+    # personas_json = json.dumps([ob.__dict__ for ob in personas])
+    return jsonify(output_format_obj)
 
 @app.route("/api/output-formats/<int:id>", methods=["DELETE"])
 @require_api_key
@@ -811,12 +840,7 @@ def models_json(models):
 def output_formats_json(output_formats):
     output_formats_array = []
     for output_format in output_formats:
-        output_format_obj = {
-            "id": output_format.id,
-            "name": output_format.name,
-            "prompt": output_format.prompt,
-            "owner_id": output_format.owner_id
-        }
+        output_format_obj = output_format.toDict()
         output_formats_array.append(output_format_obj)
     return json.dumps(output_formats_array)
 

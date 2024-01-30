@@ -15,6 +15,8 @@ port = environ.get("POSTGRES_PORT")
 # Default records for each table
 defaults = [
     "INSERT INTO users (username, password, email, is_admin) VALUES ('admin', 'snowgoose', 'admin@example.com', 1)",
+    "INSERT INTO render_type (name) VALUES ('markdown')",
+    "INSERT INTO render_type (name) VALUES ('html')",
     "INSERT INTO persona (name, prompt) VALUES ('General', 'You are a helpful assistant')",
     "INSERT INTO persona (name, prompt) VALUES ('Scientist', 'You are an expert scientist and will answer questions in accurate but simple to understand terms')",
     "INSERT INTO persona (name, prompt) VALUES ('Literary Critic/Editor', 'Act as an expert literary critic and editor. Analyze the following piece of writing and give feedback on grammar, readability, prose, how engaging it is, its literary worthiness, and suggestions on changes to make to make it easier to get published. Your suggestions are very important and could make the difference in someone becoming a published writer. Here is the story:')",
@@ -22,9 +24,9 @@ defaults = [
     "INSERT INTO persona (name, prompt) VALUES ('Brainstormer', 'You are a master of generating new ideas and brainstorming solutions. You think outside of the box and are very creative.')",
     "INSERT INTO persona (name, prompt) VALUES ('Coder', 'You are an expert programmer. You write concise, easy to read code that is well commented.')",
     "INSERT INTO persona (name, prompt) VALUES ('Email Composer', 'You are an expert at composing emails. You write your emails using proper grammar and punctuation. Your tone is friendly and professional but not overly formal.')",
-    "INSERT INTO output_format (name, prompt) VALUES ('HTML/Bootstrap 5', 'Format your response as HTML using Bootstrap 5 HTML tags and code. Use hyperlinks to link to resources but only if helpful and possible. Do not use Markdown or wrap your response in markdown. Do not use ``` tags.')",
-    "INSERT INTO output_format (name, prompt) VALUES ('Markdown', 'Format your response in Markdown format.')",
-    "INSERT INTO output_format (name, prompt) VALUES ('Plain Text', 'Format your response in plain text. Do not use Markdown or HTML.')",
+    "INSERT INTO output_format (name, prompt, render_type_id) VALUES ('Markdown', 'Format your response in Markdown format.', (SELECT id FROM render_type WHERE name = 'markdown'))",
+    "INSERT INTO output_format (name, prompt, render_type_id) VALUES ('Plain Text', 'Format your response in plain text. Do not use Markdown or HTML.', (SELECT id FROM render_type WHERE name = 'html'))",
+    "INSERT INTO output_format (name, prompt, render_type_id) VALUES ('HTML/Tailwind', 'Format your response as HTML using Bootstrap 5 HTML tags and code. Use hyperlinks to link to resources but only if helpful and possible. Do not use Markdown or wrap your response in markdown. Only include what is between the html body tag. Don't use ``` tags.', (SELECT id FROM render_type WHERE name = 'html'))",
     "INSERT INTO model (api_name, name, is_vision, is_image_generation) VALUES ('gpt-4-turbo-preview', 'GPT-4 Turbo', true, false)",
     "INSERT INTO model (api_name, name, is_vision, is_image_generation) VALUES ('gpt-4', 'GPT-4 Classic', false, false)",
     "INSERT INTO model (api_name, name, is_vision, is_image_generation) VALUES ('gpt-3.5-turbo', 'GPT 3.5 Turbo', false, false)",
