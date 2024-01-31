@@ -159,6 +159,7 @@ def require_api_key(f):
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        app.logger.info('getting API key')
         auth_header = request.headers.get('Authorization')
         print(auth_header)
         # Verify the Authorization header is present and is a Bearer token
@@ -325,6 +326,7 @@ def api_clerk_test(user):
 @app.route('/api/personas', methods=["GET"])
 @require_api_key
 def api_personas():
+    app.logger.info('getting personas')
     #if not current_user.is_admin:
     #    return redirect(url_for('index'))
     
