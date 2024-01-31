@@ -24,6 +24,7 @@ app.logger.addHandler(handler)
 
 # Get OpenAI's API key from the .env file
 openai.api_key = environ.get("OPENAI_API_KEY")
+app.logger.info('Starting logging')
 
 # Ensure SESSION_COOKIE_SECURE is True in production
 app.config["SESSION_COOKIE_SECURE"] = environ.get("SESSION_COOKIE_SECURE")
@@ -495,6 +496,7 @@ def api_dalle():
 @app.route('/api/history', methods=['POST'])
 @require_clerk_session
 def api_history(user):
+    app.logger.info('fetching history')
     history = ConversationHistory.query.filter_by(user_id=user.id).order_by(ConversationHistory.timestamp.desc()).all()
     histories = []
     for h in history:
