@@ -16,7 +16,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Configure logging
-handler = logging.FileHandler('~/flask_app.log')  # You can specify the path to your log file
+handler = logging.FileHandler('flask_app.log')  # You can specify the path to your log file
 handler.setLevel(logging.INFO)  # Or another level like logging.DEBUG or logging.ERROR
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
