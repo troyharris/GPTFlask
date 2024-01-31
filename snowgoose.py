@@ -10,9 +10,17 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from functools import wraps, partial
 from flask_cors import CORS
+import logging
 
 app = Flask(__name__)
 CORS(app)
+
+# Configure logging
+handler = logging.FileHandler('~/flask_app.log')  # You can specify the path to your log file
+handler.setLevel(logging.INFO)  # Or another level like logging.DEBUG or logging.ERROR
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+app.logger.addHandler(handler)
 
 # Get OpenAI's API key from the .env file
 openai.api_key = environ.get("OPENAI_API_KEY")
@@ -169,25 +177,31 @@ def require_api_key(f):
 def require_clerk_session(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        app.logger.info('Checking API')
         auth_header = request.headers.get('Authorization')
         #print(auth_header)
 
         if not auth_header or  not auth_header.startswith('Bearer '):
+            app.logger.info('Invalid or missing API key')
             abort(401, description="Invalid or missing API key")
 
         print("Auth header formatted correctly")
+        app.logger.info('Auth header formatted correctly')
         token = auth_header.split(' ', 1)[1]
         key_object = APIKey.query.filter_by(key=token).first()
         
         if not key_object:
+            app.logger.info('INvalid or missing API key')
             abort(401, description="Invalid or missing API key")
         
         print("Auth Key successfully verified")
+        app.logger.info('Auth Key successfully verified')
 
         clerk_secret = environ.get("CLERK_SECRET")
 
         if not clerk_secret: 
             print("Clerk API Key Missing")
+            app.logger.info('Clerk API Key Missing')
             abort(401, description="Clerk API Key Missing")
 
         # Retrieve session_id from the JSON body
@@ -197,6 +211,7 @@ def require_clerk_session(f):
         email = data.get("email")
         if not session_id:
             print("No Session ID")
+            app.logger.info('No session id')
             abort(400, description="Session ID required")
 
         # Prepare the request
@@ -217,6 +232,7 @@ def require_clerk_session(f):
                 abort(401, description="Session is not active")
             verified_user_id = response_json.get('user_id')
             if not verified_user_id or verified_user_id == "":
+                app.logger.info('Clerk User not found')
                 print("Clerk User not found")
                 abort(401, description="User not found")
 
@@ -227,6 +243,7 @@ def require_clerk_session(f):
             user = Users.query.filter_by(username=user_id).first()
 
             if not user:
+                app.logger.info('Adding user')
                 password = generate_random_password()
                 user = Users(username=user_id, password=password, email=email)
                 db.session.add(user)
@@ -235,8 +252,10 @@ def require_clerk_session(f):
 
         else:
             print("Unknown Clerk Error")
+            app.logger.info('Clerk User not found')
             abort(401, description="Failed to verify session with Clerk API")
 
+        app.logger.info('All good. Auth successful')
         return partial(f, user=user)(*args, **kwargs)
 
     return decorated_function
