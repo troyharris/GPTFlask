@@ -501,7 +501,7 @@ def api_dalle():
 @app.route('/api/history', methods=['POST'])
 @require_clerk_session
 def api_history(user):
-    app.logger.info('fetching history')
+    app.logger.info(f'fetching history for user id: {user.id}')
     history = ConversationHistory.query.filter_by(user_id=user.id).order_by(ConversationHistory.timestamp.desc()).all()
     histories = []
     for h in history:
