@@ -506,7 +506,7 @@ def api_history(user):
     histories = []
     for h in history:
         histories.append(h.toDict())
-    app.logger.info(jsonify(histories))
+        app.logger.info(h.title)
     return jsonify(histories)
 
 @app.route("/api/history/delete/<int:id>", methods=["POST"])
