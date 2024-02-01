@@ -222,6 +222,7 @@ def require_clerk_session(f):
             'Content-Type': 'application/json'
         }
         url = f'https://api.clerk.com/v1/sessions/{session_id}'  # Assuming session_id needs to be a part of the URL
+        app.logger.info(url)
 
         # Send a request to the Clark API
         response = requests.get(url, headers=headers)
@@ -237,6 +238,8 @@ def require_clerk_session(f):
                 app.logger.info('Clerk User not found')
                 print("Clerk User not found")
                 abort(401, description="User not found")
+
+            app.logger.info(f"recieved user: {user_id} clerk verified user: {verified_user_id}")
 
             if user_id != verified_user_id:
                 print("mismatched users")
