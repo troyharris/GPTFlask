@@ -277,7 +277,7 @@ def api_chat():
             },
             {
                 "type": "image_url",
-                "image_url": f"{image_data}"
+                "image_url": {"url": image_data, "detail": "low"},
             }
         ]
         request_dict["model"]='gpt-4-vision-preview'

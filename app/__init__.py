@@ -11,8 +11,8 @@ from flask_migrate import Migrate
 def create_app(config_name):
     app = Flask(__name__)
     app.config.from_object(config_by_name[config_name])
-    # Further app initialization (extensions, blueprints, etc.)
     CORS(app)
+    app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024  # for 20MB limit
     openai.api_key = app.config["OPENAI_API_KEY"]
 
     handler = logging.FileHandler('flask_app.log')  # You can specify the path to your log file
