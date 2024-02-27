@@ -6,10 +6,12 @@ from .api import api_bp
 import os
 import logging
 from flask_migrate import Migrate
+from flasgger import Swagger
 
 
 def create_app(config_name):
     app = Flask(__name__)
+    Swagger(app)
     app.config.from_object(config_by_name[config_name])
     CORS(app)
     app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024  # for 20MB limit

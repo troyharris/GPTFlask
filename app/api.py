@@ -6,11 +6,26 @@ import requests
 import openai
 from .utils import generate_random_password, personas_json, models_json, output_formats_json
 import os
+from flasgger import swag_from
 
 
 api_bp = Blueprint('api', __name__)
 
 openai.api_key = os.environ.get("OPENAI_API_KEY")
+
+def get_token_from_header():
+    auth_header = request.headers.get('Authorization')
+    if auth_header and auth_header.startswith('Bearer '):
+        return auth_header.split(' ', 1)[1]
+    print("No auth header token")
+    return None
+
+def get_api_key_or_abort(token):
+    print(token)
+    key_object = APIKey.query.filter_by(key=token).first()
+    if not key_object:
+        abort(401, description="Invalid or missing API key")
+    return key_object
 
 def require_api_key(f):
     """
@@ -18,40 +33,15 @@ def require_api_key(f):
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        #api_bp.logger.debug('getting API key')
-        auth_header = request.headers.get('Authorization')
-        # Verify the Authorization header is present and is a Bearer token
-        if auth_header and auth_header.startswith('Bearer '):
-            token = auth_header.split(' ', 1)[1]
-            key_object = APIKey.query.filter_by(key=token).first()
-            if key_object:
-                return f(*args, **kwargs)
-
-        # If the API key is not valid, or not provided in the right format, return 401 Unauthorized
-        abort(401, description="Invalid or missing API key")
+        token = get_token_from_header()
+        get_api_key_or_abort(token)
+        return f(*args, **kwargs)
     return decorated_function
 
 
 def require_clerk_session(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        #api_bp.logger.debug('Checking API')
-        auth_header = request.headers.get('Authorization')
-
-        if not auth_header or  not auth_header.startswith('Bearer '):
-            #api_bp.logger.debug('Invalid or missing API key')
-            abort(401, description="Invalid or missing API key")
-
-        #api_bp.logger.debug('Auth header formatted correctly')
-        token = auth_header.split(' ', 1)[1]
-        key_object = APIKey.query.filter_by(key=token).first()
-        
-        if not key_object:
-            #api_bp.logger.debug('INvalid or missing API key')
-            abort(401, description="Invalid or missing API key")
-        
-        #api_bp.logger.debug('Auth Key successfully verified')
-
         clerk_secret = os.environ.get("CLERK_SECRET")
 
         if not clerk_secret: 
@@ -161,6 +151,7 @@ def api_test():
     return jsonify(hello_world)
 
 @api_bp.route('/api/current_user', methods=['POST'])
+@require_api_key
 @require_clerk_session
 def api_clerk_test(user):
     user_json = {
@@ -302,6 +293,7 @@ def api_chat():
         return jsonify(response)
 
 @api_bp.route('/api/save_chat', methods=['POST'])
+@require_api_key
 @require_clerk_session
 def save_chat(user):
     request_json = request.get_json()
@@ -343,6 +335,7 @@ def api_dalle():
     return jsonify(response)
 
 @api_bp.route('/api/history', methods=['POST'])
+@require_api_key
 @require_clerk_session
 def api_history(user):
     #api_bp.logger.debug(f'fetching history for user id: {user.id}')
@@ -354,6 +347,7 @@ def api_history(user):
     return jsonify(histories)
 
 @api_bp.route("/api/history/delete/<int:id>", methods=["POST"])
+@require_api_key
 @require_clerk_session
 def api_delete_history(id, user):
     try:
