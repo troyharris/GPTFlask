@@ -22,6 +22,12 @@ def output_formats_json(output_formats):
         output_formats_array.append(output_format_obj)
     return json.dumps(output_formats_array)
 
+def render_types_json(render_types):
+    render_types_array = []
+    for render_type in render_types:
+        render_types_array.append(render_type.toDict())
+    return json.dumps(render_types_array)
+
 # When an account is created via Google, a password still needs to be created but doesn't need to be used.
 def generate_random_password():
     chars = string.ascii_letters + string.digits + '+/'

@@ -79,7 +79,8 @@ class OutputFormat(db.Model):
             "name": self.name,
             "prompt": self.prompt,
             "owner_id": self.owner_id,
-            "render_type_name": render_type.name
+            "render_type_name": render_type.name,
+            "render_type_id": self.render_type_id
         }
         return output_format_obj
 
@@ -93,3 +94,10 @@ class APIKey(db.Model):
 class RenderType(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
+
+    def toDict(self):
+        render_type_obj = {
+            "id": self.id,
+            "name": self.name,
+        }
+        return render_type_obj

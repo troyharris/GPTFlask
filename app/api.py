@@ -1,12 +1,11 @@
 from flask import Blueprint
 from functools import wraps, partial
 from flask import Flask, render_template, request, jsonify, abort
-from .model import APIKey, Users, OutputFormat, Persona, Model, ConversationHistory, db
+from .model import APIKey, Users, OutputFormat, Persona, Model, ConversationHistory, RenderType, db
 import requests
 import openai
-from .utils import generate_random_password, personas_json, models_json, output_formats_json
+from .utils import generate_random_password, personas_json, models_json, output_formats_json, render_types_json
 import os
-from flasgger import swag_from
 
 
 api_bp = Blueprint('api', __name__)
@@ -175,25 +174,43 @@ def api_personas():
     # personas_json = json.dumps([ob.__dict__ for ob in personas])
     return personas_json(personas)
 
-# Add a persona from the API
-@api_bp.route("/api/personas", methods=["POST"])
+# Single Persona API page
+@api_bp.route('/api/personas/<int:id>', methods=["GET"])
 @require_api_key
-def api_add_persona():
+def api_persona(id):
+    try:
+        persona = Persona.query.get(id)
+    except Exception as e:
+        return jsonify({"message": "An unexpected error occurred."}), 500
+    return jsonify(persona.toDict())
+
+# Update Persona
+@api_bp.route("/api/personas/<int:persona_id>", methods=["PUT"])
+@require_api_key
+def api_update_persona(persona_id):
     request_json = request.get_json()
 
-    if not request_json or 'name' not in request_json or 'prompt' not in request_json:
-        return jsonify({"message": "Missing 'name' or 'prompt' in request data."}), 400
+    if not request_json:
+        return jsonify({"message": "No input data provided"}), 400
+
+    persona = Persona.query.get(persona_id)
+    if not persona:
+        return jsonify({"message": "Persona not found"}), 404
+
+    name = request_json.get('name')
+    prompt = request_json.get('prompt')
+
+    # Validate the received data
+    if name is not None:
+        persona.name = name
+    if prompt is not None:
+        persona.prompt = prompt
 
     try:
-        name = request_json["name"]
-        prompt = request_json["prompt"]
-        new_persona = Persona(name=name, prompt=prompt)
-
-        db.session.add(new_persona)
         db.session.commit()
-
-        return jsonify({"message": "Success"}), 201
+        return jsonify({"message": "Persona updated successfully"}), 200
     except Exception as e:
+        db.session.rollback()
         return jsonify({"message": "An unexpected error occurred."}), 500
     
 @api_bp.route("/api/personas/<int:id>", methods=["DELETE"])
@@ -230,16 +247,48 @@ def api_output_formats():
     # personas_json = json.dumps([ob.__dict__ for ob in personas])
     return output_formats_json(output_formats)
 
+# Single output_format API page
 @api_bp.route('/api/output-formats/<int:id>', methods=["GET"])
 @require_api_key
 def api_output_format(id):
-    #if not current_user.is_admin:
-    #    return redirect(url_for('index'))
-    
-    output_format = OutputFormat.query.get(id)
-    output_format_obj = output_format.toDict()
-    # personas_json = json.dumps([ob.__dict__ for ob in personas])
-    return jsonify(output_format_obj)
+    try:
+        output_format = OutputFormat.query.get(id)
+    except Exception as e:
+        return jsonify({"message": "An unexpected error occurred."}), 500
+    print(jsonify(output_format.toDict())) 
+    return jsonify(output_format.toDict())
+
+# Update output_format
+@api_bp.route("/api/output-formats/<int:output_format_id>", methods=["PUT"])
+@require_api_key
+def api_update_output_format(output_format_id):
+    request_json = request.get_json()
+
+    if not request_json:
+        return jsonify({"message": "No input data provided"}), 400
+
+    output_format = OutputFormat.query.get(output_format_id)
+    if not output_format:
+        return jsonify({"message": "output_format not found"}), 404
+
+    name = request_json.get('name')
+    prompt = request_json.get('prompt')
+    render_type_id = request_json.get('render_type_id')
+
+    # Validate the received data
+    if name is not None:
+        output_format.name = name
+    if prompt is not None:
+        output_format.prompt = prompt
+    if render_type_id is not None:
+        output_format.render_type_id = render_type_id
+
+    try:
+        db.session.commit()
+        return jsonify({"message": "output_format updated successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": "An unexpected error occurred."}), 500
 
 @api_bp.route("/api/output-formats/<int:id>", methods=["DELETE"])
 @require_api_key
@@ -251,6 +300,14 @@ def api_delete_output_format(id):
         return jsonify({"message": "Success"}), 201
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
+    
+    # Personas API page
+@api_bp.route('/api/render-types', methods=["GET"])
+@require_api_key
+def api_render_types():
+    render_types = RenderType.query.all()
+    print(render_types_json(render_types))
+    return render_types_json(render_types)
 
 @api_bp.route('/api/chat', methods=['POST'])
 @require_api_key
