@@ -6,11 +6,12 @@ import requests
 import openai
 from .utils import generate_random_password, personas_json, models_json, output_formats_json, render_types_json
 import os
-
+from anthropic import Anthropic
 
 api_bp = Blueprint('api', __name__)
 
 openai.api_key = os.environ.get("OPENAI_API_KEY")
+anthropic_client = Anthropic()
 
 def get_token_from_header():
     auth_header = request.headers.get('Authorization')
@@ -20,7 +21,6 @@ def get_token_from_header():
     return None
 
 def get_api_key_or_abort(token):
-    print(token)
     key_object = APIKey.query.filter_by(key=token).first()
     if not key_object:
         abort(401, description="Invalid or missing API key")
@@ -255,7 +255,6 @@ def api_output_format(id):
         output_format = OutputFormat.query.get(id)
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
-    print(jsonify(output_format.toDict())) 
     return jsonify(output_format.toDict())
 
 # Update output_format
@@ -306,7 +305,6 @@ def api_delete_output_format(id):
 @require_api_key
 def api_render_types():
     render_types = RenderType.query.all()
-    print(render_types_json(render_types))
     return render_types_json(render_types)
 
 @api_bp.route('/api/chat', methods=['POST'])
@@ -340,6 +338,29 @@ def api_chat():
             max_tokens=1024
         )
         return jsonify(response)
+    
+    # Use the Anthropic client if an Anthropic model is used.
+    # Right now this is hardcoded, but in the future, the model
+    # object should be modified to add an API vendor.
+    elif request_dict["model"] == 'claude-3-opus-20240229':
+        # Anthropic does not take the system prompt in the message array, so we need to get rid of it
+        messages = request_dict["messages"]
+        del messages[0]
+
+        # Call Anthropic's client and send the messages.
+        response = anthropic_client.messages.create(
+            model=request_dict["model"],
+            max_tokens=1024,
+            system=request_dict["system_prompt"],
+            messages=messages
+        )
+
+        # We need to convert Anthropic's chat response to be in OpenAI's format
+        message = {"role": "assistant","content": response.content[0].text}
+        chat_response = {
+            "choices": [{"message": message}]
+        }
+        return jsonify(chat_response)
 
     # If just a standard chat model, we simply pass it our model and messages object
     else: 
