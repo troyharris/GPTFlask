@@ -184,6 +184,27 @@ def api_persona(id):
         return jsonify({"message": "An unexpected error occurred."}), 500
     return jsonify(persona.toDict())
 
+# Add a persona from the API
+@api_bp.route("/api/personas", methods=["POST"])
+@require_api_key
+def api_add_persona():
+    request_json = request.get_json()
+
+    if not request_json or 'name' not in request_json or 'prompt' not in request_json:
+        return jsonify({"message": "Missing 'name' or 'prompt' in request data."}), 400
+
+    try:
+        name = request_json["name"]
+        prompt = request_json["prompt"]
+        new_persona = Persona(name=name, prompt=prompt)
+
+        db.session.add(new_persona)
+        db.session.commit()
+
+        return jsonify({"message": "Success"}), 201
+    except Exception as e:
+        return jsonify({"message": "An unexpected error occurred."}), 500
+
 # Update Persona
 @api_bp.route("/api/personas/<int:persona_id>", methods=["PUT"])
 @require_api_key
@@ -256,6 +277,28 @@ def api_output_format(id):
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
     return jsonify(output_format.toDict())
+
+# Add a persona from the API
+@api_bp.route("/api/output-formats", methods=["POST"])
+@require_api_key
+def api_add_output_formats():
+    request_json = request.get_json()
+
+    if not request_json or 'name' not in request_json or 'prompt' not in request_json:
+        return jsonify({"message": "Missing 'name' or 'prompt' in request data."}), 400
+
+    try:
+        name = request_json["name"]
+        prompt = request_json["prompt"]
+        render_type_id = request_json["render_type_id"]
+        new_output_format = OutputFormat(name=name, prompt=prompt, render_type_id=render_type_id)
+
+        db.session.add(new_output_format)
+        db.session.commit()
+
+        return jsonify({"message": "Success"}), 201
+    except Exception as e:
+        return jsonify({"message": "An unexpected error occurred."}), 500
 
 # Update output_format
 @api_bp.route("/api/output-formats/<int:output_format_id>", methods=["PUT"])
