@@ -4,3 +4,4 @@ instance/
 .env
 .flaskenv
 flask_app.log
+env/
