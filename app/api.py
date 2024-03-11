@@ -105,49 +105,40 @@ def require_clerk_session(f):
 
 def openai_request(request):
     request_json = request.get_json()
-    response_history = request_json["responseHistory"]
-    system_prompt_code = request_json["persona"]
-    output_format_code = request_json["outputFormat"]
     prompt = request_json["prompt"]
-    image_data = request_json["imageData"]
     model = request_json["model"]
-    persona = Persona.query.get(system_prompt_code)
-    output_format = OutputFormat.query.get(output_format_code)
-    # Persona and Output Format might be blank if its DALLE or Vision.
     system_prompt = ""
-    if persona and output_format:
-        system_prompt = persona.prompt + " " + output_format.prompt
-    messages = [{"role": "system", "content": system_prompt}]
-    messages += response_history
-
-    # Create a dictionary with the local variables
     request_dict = {
-        "response_history": response_history,
-        "system_prompt_code": system_prompt_code,
-        "output_format_code": output_format_code,
-        "image_data": image_data,
-        "model": model,
-        "persona": persona,
-        "output_format": output_format,
-        "system_prompt": system_prompt,
         "prompt": prompt,
-        "messages": messages
+        "model": model,
+        "system_prompt": system_prompt,
     }
+    # Dall-E only uses the prompt, so ignore the rest if Dall-E
+    if model != "dall-e-3":
+        response_history = request_json["responseHistory"]
+        persona_id = request_json["personaId"]
+        output_format_id = request_json["outputFormatId"]
+        image_data = request_json["imageData"]
+        persona = Persona.query.get(persona_id)
+        output_format = OutputFormat.query.get(output_format_id)
+        if persona and output_format:
+            system_prompt = persona.prompt + " " + output_format.prompt
+        messages = [{"role": "system", "content": system_prompt}]
+        messages += response_history
+        request_dict_additions = {
+            "image_data": image_data,
+            "persona": persona,
+            "output_format": output_format,
+            "messages": messages
+        }
+        request_dict.update(request_dict_additions)
+
     return request_dict
 
 # Routing
 @api_bp.route('/')
 def index():
     return render_template('index.html')
-
-@api_bp.route('/api/test', methods=['POST'])
-# @require_api_key
-def api_test():
-    request_json = request.get_json()
-    greeting = request_json["greeting"]
-    compiled_greeting = greeting + " world"
-    hello_world = {"compiled_greeting": compiled_greeting}
-    return jsonify(hello_world)
 
 @api_bp.route('/api/current_user', methods=['POST'])
 @require_api_key
@@ -162,32 +153,97 @@ def api_clerk_test(user):
     }
     return jsonify(user_json)
 
-# Personas API page
+# Personas
+
+# Get all personas
 @api_bp.route('/api/personas', methods=["GET"])
 @require_api_key
 def api_personas():
-    #api_bp.logger.debug('getting personas')
-    #if not current_user.is_admin:
-    #    return redirect(url_for('index'))
-    
+    """
+    Get All Personas
+    ---
+    tags:
+      - Personas
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+    responses:
+      200:
+        description: Returns a list of all personas
+        examples:
+          application/json: [{"id": 1, "name": "Assistant", "prompt": "You are a helpful assistant."}]
+      401:
+        description: Unauthorized, invalid or missing API key
+    """    
     personas = Persona.query.all()
-    # personas_json = json.dumps([ob.__dict__ for ob in personas])
     return personas_json(personas)
 
-# Single Persona API page
+# Get single persona
 @api_bp.route('/api/personas/<int:id>', methods=["GET"])
 @require_api_key
 def api_persona(id):
+    """
+    Get Single Persona
+    ---
+    tags:
+      - Personas
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: ID of the persona to retrieve
+    responses:
+      200:
+        description: Returns a single persona based on ID
+        examples:
+          application/json: {"id": 1, "name": "Assistant", "prompt": "You are a helpful assistant."}
+      401:
+        description: Unauthorized, invalid or missing API key
+      404:
+        description: The requested persona is not found
+      500:
+        description: An unexpected error occurred
+    """
     try:
         persona = Persona.query.get(id)
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
     return jsonify(persona.toDict())
 
-# Add a persona from the API
+# Add a persona
 @api_bp.route("/api/personas", methods=["POST"])
 @require_api_key
 def api_add_persona():
+    """
+    Add Persona
+    ---
+    tags:
+      - Personas
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+    responses:
+      200:
+        description: Returns a success message
+        examples:
+          application/json: {"message": "success"}
+      401:
+        description: Unauthorized, invalid or missing API key
+      500:
+        description: An unexpected error occurred
+    """
     request_json = request.get_json()
 
     if not request_json or 'name' not in request_json or 'prompt' not in request_json:
@@ -205,10 +261,46 @@ def api_add_persona():
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
 
-# Update Persona
+# Update a Persona
 @api_bp.route("/api/personas/<int:persona_id>", methods=["PUT"])
 @require_api_key
 def api_update_persona(persona_id):
+    """
+    Update Persona
+    ---
+    tags:
+      - Personas
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: ID of the persona to update
+    responses:
+      200:
+        description: Returns a success message
+        examples:
+          application/json: {"message": "Persona updated successfully"}
+      400:
+        description: No input data provided
+        examples:
+            application/json: {"message": "No input data provided"}
+      401:
+        description: Unauthorized, invalid or missing API key
+      404:
+        description: The requested persona is not found
+        examples:
+            application/json: {"message": "Persona not found"}
+      500:
+        description: An unexpected error occurred
+        examples:
+            application/json: {"message": "An unexpected error occurred."}
+    """
     request_json = request.get_json()
 
     if not request_json:
@@ -234,33 +326,212 @@ def api_update_persona(persona_id):
         db.session.rollback()
         return jsonify({"message": "An unexpected error occurred."}), 500
     
+# Delete a persona    
 @api_bp.route("/api/personas/<int:id>", methods=["DELETE"])
 @require_api_key
 def api_delete_persona(id):
+    """
+    Delete Persona
+    ---
+    tags:
+      - Personas
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: ID of the persona to update
+    responses:
+      200:
+        description: Returns a success message
+        examples:
+          application/json: {"message": "Success"}
+      401:
+        description: Unauthorized, invalid or missing API key
+      404:
+        description: The requested persona is not found
+      500:
+        description: An unexpected error occurred
+        examples:
+            application/json: {"message": "An unexpected error occurred."}
+    """
     try:
         persona = Persona.query.get(id)
         db.session.delete(persona)
+        db.session.commit()
+        return jsonify({"message": "Success"}), 200
+    except Exception as e:
+        return jsonify({"message": "An unexpected error occurred."}), 500
+
+# Models
+    
+# Get all models
+@api_bp.route('/api/models')
+@require_api_key
+def api_models():
+    """
+    Get All Models
+    ---
+    tags:
+      - Models
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+    responses:
+      200:
+        description: Returns a list of all personas
+        examples:
+          application/json: [{"id": 1, "api_name": "gpt-4-turbo-preview", "name": "GPT-4 Turbo", "is_vision": false, "is_image_generation": false}]
+      401:
+        description: Unauthorized, invalid or missing API key
+    """ 
+    models = Model.query.all()
+    return models_json(models)
+
+# Get single model
+@api_bp.route('/api/models/<int:id>', methods=["GET"])
+@require_api_key
+def api_model(id):
+    """
+    Get Single Model by ID
+    ---
+    tags:
+      - Models
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: ID of the model to retrieve
+    responses:
+      200:
+        description: Returns a single model based on ID
+        examples:
+          application/json: {"id": 1, "api_name": "gpt-3", "name": "GPT-3", "is_vision": false, "is_image_generation": false}
+      401:
+        description: Unauthorized, invalid or missing API key
+      404:
+        description: The requested model is not found
+      500:
+        description: An unexpected error occurred
+    """
+    try:
+        model = Model.query.get(id)
+    except Exception as e:
+        return jsonify({"message": "An unexpected error occurred."}), 500
+    return jsonify(model.toDict())
+
+# Get single model by Model's API name
+@api_bp.route('/api/models/api_name/<string:api_name>')
+def api_model_api_name(api_name):
+    """
+    Get Single Model by API Name
+    ---
+    tags:
+      - Models
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+      - name: api_name
+        in: path
+        type: string
+        required: true
+        description: API name of the model to retrieve
+    responses:
+      200:
+        description: Returns a single model based on API name
+        examples:
+          application/json: {"id": 1, "api_name": "gpt-3", "name": "GPT-3", "is_vision": false, "is_image_generation": false}
+      401:
+        description: Unauthorized, invalid or missing API key
+      404:
+        description: The requested model is not found
+      500:
+        description: An unexpected error occurred
+    """
+    model = Model.query.filter_by(api_name=api_name).first()
+    return jsonify(model.toDict())
+
+# Delete a model    
+@api_bp.route("/api/models/<int:id>", methods=["DELETE"])
+@require_api_key
+def api_delete_model(id):
+    """
+    Delete a Model
+    ---
+    tags:
+      - Models
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: ID of the model to delete
+    responses:
+      201:
+        description: Model deleted successfully
+        examples:
+          application/json: {"message": "Success"}
+      401:
+        description: Unauthorized, invalid or missing API key
+      404:
+        description: The requested model is not found
+      500:
+        description: An unexpected error occurred
+    """
+    try:
+        model = Model.query.get(id)
+        db.session.delete(model)
         db.session.commit()
         return jsonify({"message": "Success"}), 201
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
 
-# Models API page
-@api_bp.route('/api/models')
-def api_models():
-    models = Model.query.all()
-    return models_json(models)
-
-# Models API page
-@api_bp.route('/api/models/api_name/<string:api_name>')
-def api_model_api_name(api_name):
-    model = Model.query.filter_by(api_name=api_name).first()
-    return jsonify(model.toDict())
-
-# Output Formats API page
+# Output Formats
+# Get all Output Formats
 @api_bp.route('/api/output-formats')
 @require_api_key
 def api_output_formats():
+    """
+    Get All Output Formats
+    ---
+    tags:
+      - Output Formats
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+    responses:
+      200:
+        description: Returns a list of all output formats
+        examples:
+          application/json: [{"id": 1, "name": "Text", "prompt": "Output as text.", "render_type_id": 1}]
+      401:
+        description: Unauthorized, invalid or missing API key
+    """
     #if not current_user.is_admin:
     #    return redirect(url_for('index'))
     
@@ -268,20 +539,69 @@ def api_output_formats():
     # personas_json = json.dumps([ob.__dict__ for ob in personas])
     return output_formats_json(output_formats)
 
-# Single output_format API page
+# Get Single Output Format
 @api_bp.route('/api/output-formats/<int:id>', methods=["GET"])
 @require_api_key
 def api_output_format(id):
+    """
+    Get Single Output Format
+    ---
+    tags:
+      - Output Formats
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: ID of the output format to retrieve
+    responses:
+      200:
+        description: Returns a single output format based on ID
+        examples:
+          application/json: {"id": 1, "name": "Text", "prompt": "Output as text.", "render_type_id": 1}
+      401:
+        description: Unauthorized, invalid or missing API key
+      404:
+        description: The requested output format is not found
+      500:
+        description: An unexpected error occurred
+    """
     try:
         output_format = OutputFormat.query.get(id)
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
     return jsonify(output_format.toDict())
 
-# Add a persona from the API
+# Add an Output Format from the API
 @api_bp.route("/api/output-formats", methods=["POST"])
 @require_api_key
 def api_add_output_formats():
+    """
+    Add Output Format
+    ---
+    tags:
+      - Output Formats
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+    responses:
+      200:
+        description: Returns a success message
+        examples:
+          application/json: {"message": "success"}
+      401:
+        description: Unauthorized, invalid or missing API key
+      500:
+        description: An unexpected error occurred
+    """
     request_json = request.get_json()
 
     if not request_json or 'name' not in request_json or 'prompt' not in request_json:
@@ -300,10 +620,46 @@ def api_add_output_formats():
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
 
-# Update output_format
+# Update Output Format
 @api_bp.route("/api/output-formats/<int:output_format_id>", methods=["PUT"])
 @require_api_key
 def api_update_output_format(output_format_id):
+    """
+    Update Output Format
+    ---
+    tags:
+      - Output Formats
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: ID of the output format to update
+    responses:
+      200:
+        description: Returns a success message
+        examples:
+          application/json: {"message": "Success"}
+      400:
+        description: No input data provided
+        examples:
+            application/json: {"message": "No input data provided"}
+      401:
+        description: Unauthorized, invalid or missing API key
+      404:
+        description: The requested persona is not found
+        examples:
+            application/json: {"message": "Persona not found"}
+      500:
+        description: An unexpected error occurred
+        examples:
+            application/json: {"message": "An unexpected error occurred."}
+    """
     request_json = request.get_json()
 
     if not request_json:
@@ -327,14 +683,45 @@ def api_update_output_format(output_format_id):
 
     try:
         db.session.commit()
-        return jsonify({"message": "output_format updated successfully"}), 200
+        return jsonify({"message": "Success"}), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": "An unexpected error occurred."}), 500
-
+    
+# Delete Output Format
 @api_bp.route("/api/output-formats/<int:id>", methods=["DELETE"])
 @require_api_key
 def api_delete_output_format(id):
+    """
+    Delete Output Format
+    ---
+    tags:
+      - Output Formats
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: ID of the output format to delete
+    responses:
+      200:
+        description: Returns a success message
+        examples:
+          application/json: {"message": "Success"}
+      401:
+        description: Unauthorized, invalid or missing API key
+      404:
+        description: The requested persona is not found
+      500:
+        description: An unexpected error occurred
+        examples:
+            application/json: {"message": "An unexpected error occurred."}
+    """
     try:
         output_format = OutputFormat.query.get(id)
         db.session.delete(output_format)
@@ -343,16 +730,99 @@ def api_delete_output_format(id):
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
     
-    # Personas API page
+# Render Types
+# Get all Render Types
 @api_bp.route('/api/render-types', methods=["GET"])
 @require_api_key
 def api_render_types():
+    """
+    Get All Render Types
+    ---
+    tags:
+      - Render Types
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+    responses:
+      200:
+        description: Returns a list of all render types
+        examples:
+          application/json: [{"id": 1, "name": "Text"}, {"id": 2, "name": "Image"}]
+      401:
+        description: Unauthorized, invalid or missing API key
+    """
     render_types = RenderType.query.all()
     return render_types_json(render_types)
 
+# The main chat/conversation endpoint
 @api_bp.route('/api/chat', methods=['POST'])
 @require_api_key
 def api_chat():
+    """
+    Generate a chat response from selected AI model
+    ---
+    tags:
+      - Chat
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        description: JSON object containing information to generate a chat response
+        required: true
+        schema:
+          type: object
+          properties:
+            model:
+              type: string
+            prompt:
+              type: string
+            personaId:
+              type: integer
+            outputFormatId:
+              type: integer
+            responseHistory:
+              type: array
+              items:
+                type: object
+                properties:
+                    role:
+                        type: string
+                    content:
+                        type: string
+            imageData:
+              type: string
+          example:
+            model: "gpt-3.5-turbo"
+            prompt: "Testing the API. Respond with a test message."
+            personaId: 1
+            outputFormatId: 1
+            imageData: ""
+            responseHistory:
+                - role: "user"
+                  content: "Testing the API. Respond with a test message."
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+    responses:
+      200:
+        description: Returns an object with role and content
+        examples:
+          application/json: > 
+            {
+                "content": "Test message: This is a test message from the API.",
+                "role": "assistant"
+            }
+      401:
+        description: Unauthorized, invalid or missing API key
+      500:
+        description: An unexpected error occurred
+    """
     request_dict = openai_request(request)
 
     # If a file was uploaded, load the vision model no matter what and override the system prompt
@@ -400,10 +870,7 @@ def api_chat():
 
         # We need to convert Anthropic's chat response to be in OpenAI's format
         message = {"role": "assistant","content": response.content[0].text}
-        chat_response = {
-            "choices": [{"message": message}]
-        }
-        return jsonify(chat_response)
+        return jsonify(message)
 
     # If just a standard chat model, we simply pass it our model and messages object
     else: 
@@ -411,8 +878,81 @@ def api_chat():
             model=request_dict["model"],
             messages=request_dict["messages"]
         )
-        return jsonify(response)
+        return jsonify(response.choices[0].message)
 
+# DALLE-3 image generation API
+@api_bp.route('/api/dalle', methods=['POST'])
+@require_api_key
+def api_dalle():
+    """
+    Generate an image using DALLE-3
+    ---
+    tags:
+      - DALL-E
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        description: JSON object containing the image generation prompt
+        required: true
+        schema:
+          type: object
+          properties:
+            model:
+              type: string
+            prompt:
+              type: string
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+    responses:
+      200:
+        description: Returns the generated image information in OpenAI image generation format
+        examples:
+          application/json: >
+            {
+              "created": 1589478378,
+              "data": [
+                {
+                  "revised_prompt": "photo of a dog",
+                  "url": "https://image.url"
+                }
+              ]
+            }
+      401:
+        description: Unauthorized, invalid or missing API key
+      500:
+        description: An unexpected error occurred
+    """
+    request_dict = openai_request(request)
+    prompt = request_dict["prompt"]
+    response = openai.Image.create(
+        model="dall-e-3",
+        prompt=prompt,
+        size="1024x1024",
+        quality="standard",
+        n=1
+    )
+    # DALL-E-3 returns a response that includes an image URL. The front-end knows what to do with it.
+    return jsonify(response)
+
+# Get all history for current user
+@api_bp.route('/api/history', methods=['POST'])
+@require_api_key
+@require_clerk_session
+def api_history(user):
+    #api_bp.logger.debug(f'fetching history for user id: {user.id}')
+    history = ConversationHistory.query.filter_by(user_id=user.id).order_by(ConversationHistory.timestamp.desc()).all()
+    histories = []
+    for h in history:
+        histories.append(h.toDict())
+        #api_bp.logger.debug(h.title)
+    return jsonify(histories)
+
+# Save chat as a history object
 @api_bp.route('/api/save_chat', methods=['POST'])
 @require_api_key
 @require_clerk_session
@@ -441,32 +981,7 @@ def save_chat(user):
     db.session.commit()
     return jsonify({"message": f"Successfully saved chat: {title}"}), 201
 
-@api_bp.route('/api/dalle', methods=['POST'])
-def api_dalle():
-    request_dict = openai_request(request)
-    prompt = request_dict["prompt"]
-    response = openai.Image.create(
-        model="dall-e-3",
-        prompt=prompt,
-        size="1024x1024",
-        quality="standard",
-        n=1
-    )
-    # DALL-E-3 returns a response that includes an image URL. The front-end knows what to do with it.
-    return jsonify(response)
-
-@api_bp.route('/api/history', methods=['POST'])
-@require_api_key
-@require_clerk_session
-def api_history(user):
-    #api_bp.logger.debug(f'fetching history for user id: {user.id}')
-    history = ConversationHistory.query.filter_by(user_id=user.id).order_by(ConversationHistory.timestamp.desc()).all()
-    histories = []
-    for h in history:
-        histories.append(h.toDict())
-        #api_bp.logger.debug(h.title)
-    return jsonify(histories)
-
+# Delete a histroy object
 @api_bp.route("/api/history/delete/<int:id>", methods=["POST"])
 @require_api_key
 @require_clerk_session
