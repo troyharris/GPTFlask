@@ -162,7 +162,8 @@ def api_clerk_test(user):
     }
     return jsonify(user_json)
 
-# Personas API page
+# Personas
+# Get all personas
 @api_bp.route('/api/personas', methods=["GET"])
 @require_api_key
 def api_personas():
@@ -174,7 +175,7 @@ def api_personas():
     # personas_json = json.dumps([ob.__dict__ for ob in personas])
     return personas_json(personas)
 
-# Single Persona API page
+# Get single persona
 @api_bp.route('/api/personas/<int:id>', methods=["GET"])
 @require_api_key
 def api_persona(id):
@@ -184,7 +185,7 @@ def api_persona(id):
         return jsonify({"message": "An unexpected error occurred."}), 500
     return jsonify(persona.toDict())
 
-# Add a persona from the API
+# Add a persona
 @api_bp.route("/api/personas", methods=["POST"])
 @require_api_key
 def api_add_persona():
@@ -205,7 +206,7 @@ def api_add_persona():
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
 
-# Update Persona
+# Update a Persona
 @api_bp.route("/api/personas/<int:persona_id>", methods=["PUT"])
 @require_api_key
 def api_update_persona(persona_id):
@@ -234,6 +235,7 @@ def api_update_persona(persona_id):
         db.session.rollback()
         return jsonify({"message": "An unexpected error occurred."}), 500
     
+# Delete a persona    
 @api_bp.route("/api/personas/<int:id>", methods=["DELETE"])
 @require_api_key
 def api_delete_persona(id):
@@ -245,19 +247,43 @@ def api_delete_persona(id):
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
 
-# Models API page
+# Models
+# Get all models
 @api_bp.route('/api/models')
 def api_models():
     models = Model.query.all()
     return models_json(models)
 
-# Models API page
+# Get single model
+@api_bp.route('/api/models/<int:id>', methods=["GET"])
+@require_api_key
+def api_models(id):
+    try:
+        model = Model.query.get(id)
+    except Exception as e:
+        return jsonify({"message": "An unexpected error occurred."}), 500
+    return jsonify(model.toDict())
+
+# Get single model by Model's API name
 @api_bp.route('/api/models/api_name/<string:api_name>')
 def api_model_api_name(api_name):
     model = Model.query.filter_by(api_name=api_name).first()
     return jsonify(model.toDict())
 
-# Output Formats API page
+# Delete a model    
+@api_bp.route("/api/models/<int:id>", methods=["DELETE"])
+@require_api_key
+def api_delete_model(id):
+    try:
+        model = Model.query.get(id)
+        db.session.delete(model)
+        db.session.commit()
+        return jsonify({"message": "Success"}), 201
+    except Exception as e:
+        return jsonify({"message": "An unexpected error occurred."}), 500
+
+# Output Formats
+# Get all Output Formats
 @api_bp.route('/api/output-formats')
 @require_api_key
 def api_output_formats():
@@ -268,7 +294,7 @@ def api_output_formats():
     # personas_json = json.dumps([ob.__dict__ for ob in personas])
     return output_formats_json(output_formats)
 
-# Single output_format API page
+# Get Single Output Format
 @api_bp.route('/api/output-formats/<int:id>', methods=["GET"])
 @require_api_key
 def api_output_format(id):
@@ -278,7 +304,7 @@ def api_output_format(id):
         return jsonify({"message": "An unexpected error occurred."}), 500
     return jsonify(output_format.toDict())
 
-# Add a persona from the API
+# Add an Output Format from the API
 @api_bp.route("/api/output-formats", methods=["POST"])
 @require_api_key
 def api_add_output_formats():
@@ -300,7 +326,7 @@ def api_add_output_formats():
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
 
-# Update output_format
+# Update Output Format
 @api_bp.route("/api/output-formats/<int:output_format_id>", methods=["PUT"])
 @require_api_key
 def api_update_output_format(output_format_id):
@@ -331,7 +357,8 @@ def api_update_output_format(output_format_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": "An unexpected error occurred."}), 500
-
+    
+# Delete Output Format
 @api_bp.route("/api/output-formats/<int:id>", methods=["DELETE"])
 @require_api_key
 def api_delete_output_format(id):
@@ -343,13 +370,15 @@ def api_delete_output_format(id):
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
     
-    # Personas API page
+# Render Types
+# Get all Render Types
 @api_bp.route('/api/render-types', methods=["GET"])
 @require_api_key
 def api_render_types():
     render_types = RenderType.query.all()
     return render_types_json(render_types)
 
+# The main chat/conversation endpoint
 @api_bp.route('/api/chat', methods=['POST'])
 @require_api_key
 def api_chat():
@@ -413,6 +442,35 @@ def api_chat():
         )
         return jsonify(response)
 
+# DALLE-3 image generation API
+@api_bp.route('/api/dalle', methods=['POST'])
+def api_dalle():
+    request_dict = openai_request(request)
+    prompt = request_dict["prompt"]
+    response = openai.Image.create(
+        model="dall-e-3",
+        prompt=prompt,
+        size="1024x1024",
+        quality="standard",
+        n=1
+    )
+    # DALL-E-3 returns a response that includes an image URL. The front-end knows what to do with it.
+    return jsonify(response)
+
+# Get all history for current user
+@api_bp.route('/api/history', methods=['POST'])
+@require_api_key
+@require_clerk_session
+def api_history(user):
+    #api_bp.logger.debug(f'fetching history for user id: {user.id}')
+    history = ConversationHistory.query.filter_by(user_id=user.id).order_by(ConversationHistory.timestamp.desc()).all()
+    histories = []
+    for h in history:
+        histories.append(h.toDict())
+        #api_bp.logger.debug(h.title)
+    return jsonify(histories)
+
+# Save chat as a history object
 @api_bp.route('/api/save_chat', methods=['POST'])
 @require_api_key
 @require_clerk_session
@@ -441,32 +499,7 @@ def save_chat(user):
     db.session.commit()
     return jsonify({"message": f"Successfully saved chat: {title}"}), 201
 
-@api_bp.route('/api/dalle', methods=['POST'])
-def api_dalle():
-    request_dict = openai_request(request)
-    prompt = request_dict["prompt"]
-    response = openai.Image.create(
-        model="dall-e-3",
-        prompt=prompt,
-        size="1024x1024",
-        quality="standard",
-        n=1
-    )
-    # DALL-E-3 returns a response that includes an image URL. The front-end knows what to do with it.
-    return jsonify(response)
-
-@api_bp.route('/api/history', methods=['POST'])
-@require_api_key
-@require_clerk_session
-def api_history(user):
-    #api_bp.logger.debug(f'fetching history for user id: {user.id}')
-    history = ConversationHistory.query.filter_by(user_id=user.id).order_by(ConversationHistory.timestamp.desc()).all()
-    histories = []
-    for h in history:
-        histories.append(h.toDict())
-        #api_bp.logger.debug(h.title)
-    return jsonify(histories)
-
+# Delete a histroy object
 @api_bp.route("/api/history/delete/<int:id>", methods=["POST"])
 @require_api_key
 @require_clerk_session
