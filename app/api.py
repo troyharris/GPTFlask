@@ -7,8 +7,10 @@ import openai
 from .utils import generate_random_password, personas_json, models_json, output_formats_json, render_types_json
 import os
 from anthropic import Anthropic
+from dotenv import load_dotenv
 
 api_bp = Blueprint('api', __name__)
+load_dotenv()
 
 openai.api_key = os.environ.get("OPENAI_API_KEY")
 anthropic_client = Anthropic()
