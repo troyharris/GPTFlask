@@ -1,0 +1,40 @@
+# type: ignore
+[run]
+# Directories or patterns to omit from coverage
+omit =
+    */site-packages/*
+    */tests/*
+    */migrations/*
+    
+# You might also want to exclude virtualenvs or other environments
+# For example, if you have a 'venv' directory in your project root, you might add:
+#     venv/*
+
+# If you're using Pytest, Flask, or Django, you might have specific directories or files 
+# related to settings or configurations that you want to exclude.
+
+[report]
+# Configuration options for report generation
+exclude_lines =
+    # Omit code blocks that define a module's `__version__`
+    if __name__ == .__main__.:
+
+    # Omit defensive programming blocks
+    raise AssertionError
+    raise NotImplementedError
+
+    # Omit abstract methods
+    @abstractmethod
+
+# Define the minimum acceptable coverage percentage
+fail_under = 70
+
+# This will ignore branches to lines that start with 'raise NotImplementedError'
+ignore_errors = True
+
+[html]
+# Directory where HTML coverage report will be saved
+directory = coverage_html_report
+
+# Title of the HTML report
+title = Coverage Report

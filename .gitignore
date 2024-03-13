@@ -13,4 +13,3 @@ env/
 !.yarn/versions
 .pnp.*
 .coverage
-.coverage*
