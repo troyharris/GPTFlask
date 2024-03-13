@@ -1,6 +1,8 @@
 import json
 import string
 import os
+from .model import APIKey, db
+from generate_api_key import generate_api_key
 
 def personas_json(personas):
     persona_array = []
@@ -34,3 +36,13 @@ def generate_random_password():
     assert 256 % len(chars) == 0  # non-biased later modulo
     PWD_LEN = 32
     return ''.join(chars[c % len(chars)] for c in os.urandom(PWD_LEN))
+
+def get_single_api_key():
+    apikey = APIKey.query.first()
+    return apikey.key
+
+def insert_api_key():
+    api_key = generate_api_key()
+    new_api_key = APIKey(name="test", key=api_key)
+    db.session.add(new_api_key)
+    db.session.commit()

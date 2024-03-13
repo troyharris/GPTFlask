@@ -1,7 +1,13 @@
 Flask==2.3.2
 Flask-SQLAlchemy==3.0.5
+Flask-Testing==0.8.1
 openai==0.27.8
 Flask-Migrate==4.0.5
 psycopg2==2.9.9
 python-dotenv==1.0.0
 anthropic==0.19.1
+coverage==7.4.3
+Flask-Cors==4.0.0
+pytest==7.4.4
+flasgger==0.9.7.1
+responses==0.25.0

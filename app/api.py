@@ -122,7 +122,8 @@ def openai_request(request):
         persona = Persona.query.get(persona_id)
         output_format = OutputFormat.query.get(output_format_id)
         if persona and output_format:
-            system_prompt = persona.prompt + " " + output_format.prompt
+            request_dict["system_prompt"] = persona.prompt + " " + output_format.prompt
+            system_prompt = request_dict["system_prompt"]
         messages = [{"role": "system", "content": system_prompt}]
         messages += response_history
         request_dict_additions = {
@@ -869,7 +870,7 @@ def api_chat():
         )
 
         # We need to convert Anthropic's chat response to be in OpenAI's format
-        message = {"role": "assistant","content": response.content[0].text}
+        message = {"role": "assistant","content": response["content"][0]["text"]}
         return jsonify(message)
 
     # If just a standard chat model, we simply pass it our model and messages object
@@ -878,7 +879,7 @@ def api_chat():
             model=request_dict["model"],
             messages=request_dict["messages"]
         )
-        return jsonify(response.choices[0].message)
+        return jsonify(response["choices"][0]["message"])
 
 # DALLE-3 image generation API
 @api_bp.route('/api/dalle', methods=['POST'])

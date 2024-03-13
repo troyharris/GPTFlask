@@ -9,6 +9,7 @@ from flask_migrate import Migrate
 from flasgger import Swagger
 
 def create_app(config_name):
+    print(config_name)
     app = Flask(__name__)
     Swagger(app)
     app.config.from_object(config_by_name[config_name])
@@ -31,6 +32,7 @@ def create_app(config_name):
 
     from .model import db
     # Initialize Flask-Migrate
+    print(app.config["DBPORT"])
     migrate = Migrate(app, db, render_as_batch=True)
     db.init_app(app)
 
