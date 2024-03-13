@@ -39,9 +39,9 @@ jobs:
       run: |
         # For tests to succeed, there needs to be some information in .env
         # This doesn't need to be valid data, it just needs to exist.
-        echo OPENAI_API_KEY="asdf" > .env
-        echo CLERK_SECRET="asdf" > .env
-        echo ANTHROPIC_API_KEY="asdf" > .env
+        echo "OPENAI_API_KEY=asdf" >> ./.env
+        echo "CLERK_SECRET=asdf" >> ./.env
+        echo "ANTHROPIC_API_KEY=asdf" > ./.env
     - name: Test with pytest
       run: |
         pytest
