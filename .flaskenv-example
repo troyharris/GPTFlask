@@ -1,4 +1,4 @@
-FLASK_APP=snowgoose
+FLASK_APP=gptflask
 PYTHONUNBUFFERED=0
 FLASK_DEBUG=1
 FLASK_RUN_HOST="localhost"

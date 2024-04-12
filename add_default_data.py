@@ -17,6 +17,8 @@ defaults = [
     "INSERT INTO users (username, password, email, is_admin) VALUES ('admin', 'snowgoose', 'admin@example.com', true)",
     "INSERT INTO render_type (name) VALUES ('markdown')",
     "INSERT INTO render_type (name) VALUES ('html')",
+    "INSERT INTO api_vendor (name) VALUES ('openai')",
+    "INSERT INTO api_vendor (name) VALUES ('anthropic')",
     "INSERT INTO persona (name, prompt) VALUES ('General', 'You are a helpful assistant')",
     "INSERT INTO persona (name, prompt) VALUES ('Scientist', 'You are an expert scientist and will answer questions in accurate but simple to understand terms')",
     "INSERT INTO persona (name, prompt) VALUES ('Literary Critic/Editor', 'Act as an expert literary critic and editor. Analyze the following piece of writing and give feedback on grammar, readability, prose, how engaging it is, its literary worthiness, and suggestions on changes to make to make it easier to get published. Your suggestions are very important and could make the difference in someone becoming a published writer. Here is the story:')",
@@ -27,11 +29,12 @@ defaults = [
     "INSERT INTO output_format (name, prompt, render_type_id) VALUES ('Markdown', 'Format your response in Markdown format.', (SELECT id FROM render_type WHERE name = 'markdown'))",
     "INSERT INTO output_format (name, prompt, render_type_id) VALUES ('Plain Text', 'Format your response in plain text. Do not use Markdown or HTML.', (SELECT id FROM render_type WHERE name = 'html'))",
     "INSERT INTO output_format (name, prompt, render_type_id) VALUES ('HTML/Tailwind', 'Format your response as HTML using Bootstrap 5 HTML tags and code. Use hyperlinks to link to resources but only if helpful and possible. Do not use Markdown or wrap your response in markdown. Only include what is between the html body tag. Do not use ``` tags.', (SELECT id FROM render_type WHERE name = 'html'))",
-    "INSERT INTO model (api_name, name, is_vision, is_image_generation) VALUES ('gpt-4-turbo-preview', 'GPT-4 Turbo', false, false)",
-    "INSERT INTO model (api_name, name, is_vision, is_image_generation) VALUES ('gpt-4', 'GPT-4 Classic', false, false)",
-    "INSERT INTO model (api_name, name, is_vision, is_image_generation) VALUES ('gpt-3.5-turbo', 'GPT 3.5 Turbo', false, false)",
-    "INSERT INTO model (api_name, name, is_vision, is_image_generation) VALUES ('gpt-4-vision-preview', 'GPT-4 Vision', true, false)",
-    "INSERT INTO model (api_name, name, is_vision, is_image_generation) VALUES ('dall-e-3', 'DALL-E-3', false, true)",
+    "INSERT INTO model (api_name, name, is_vision, is_image_generation, api_vendor_id) VALUES ('gpt-4-turbo-preview', 'GPT-4 Turbo', false, false, (SELECT id FROM api_vendor WHERE name = 'openai'))",
+    "INSERT INTO model (api_name, name, is_vision, is_image_generation, api_vendor_id) VALUES ('gpt-4', 'GPT-4 Classic', false, false, (SELECT id FROM api_vendor WHERE name = 'openai'))",
+    "INSERT INTO model (api_name, name, is_vision, is_image_generation, api_vendor_id) VALUES ('gpt-3.5-turbo', 'GPT 3.5 Turbo', false, false, (SELECT id FROM api_vendor WHERE name = 'openai'))",
+    "INSERT INTO model (api_name, name, is_vision, is_image_generation, api_vendor_id) VALUES ('gpt-4-vision-preview', 'GPT-4 Vision', true, false, (SELECT id FROM api_vendor WHERE name = 'openai'))",
+    "INSERT INTO model (api_name, name, is_vision, is_image_generation, api_vendor_id) VALUES ('dall-e-3', 'DALL-E-3', false, true, (SELECT id FROM api_vendor WHERE name = 'openai'))",
+    "INSERT INTO model (api_name, name, is_vision, is_image_generation, api_vendor_id) VALUES ('claude-3-opus-20240229', 'Claude 3 Opus', false, false, (SELECT id FROM api_vendor WHERE name = 'anthropic'))",
 ]
 
 # Connect to the PostgreSQL database
