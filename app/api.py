@@ -1,19 +1,23 @@
-from flask import Blueprint
-from functools import wraps, partial
-from flask import Flask, render_template, request, jsonify, abort
-from .model import APIKey, Users, OutputFormat, Persona, Model, ConversationHistory, RenderType, db
-import requests
-import openai
-from .utils import generate_random_password, personas_json, models_json, output_formats_json, render_types_json
 import os
+from functools import partial, wraps
+
+import openai
+import requests
 from anthropic import Anthropic
 from dotenv import load_dotenv
+from flask import Blueprint, abort, jsonify, render_template, request
+
+from .model import (APIKey, APIVendor, ConversationHistory, Model,
+                    OutputFormat, Persona, RenderType, Users, db)
+from .utils import (api_vendors_json, generate_random_password, models_json,
+                    output_formats_json, personas_json, render_types_json)
 
 api_bp = Blueprint('api', __name__)
 load_dotenv()
 
 openai.api_key = os.environ.get("OPENAI_API_KEY")
 anthropic_client = Anthropic()
+
 
 def get_token_from_header():
     auth_header = request.headers.get('Authorization')
@@ -22,11 +26,13 @@ def get_token_from_header():
     print("No auth header token")
     return None
 
+
 def get_api_key_or_abort(token):
     key_object = APIKey.query.filter_by(key=token).first()
     if not key_object:
         abort(401, description="Invalid or missing API key")
     return key_object
+
 
 def require_api_key(f):
     """
@@ -45,8 +51,8 @@ def require_clerk_session(f):
     def decorated_function(*args, **kwargs):
         clerk_secret = os.environ.get("CLERK_SECRET")
 
-        if not clerk_secret: 
-            #api_bp.logger.debug('Clerk API Key Missing')
+        if not clerk_secret:
+            # api_bp.logger.debug('Clerk API Key Missing')
             abort(401, description="Clerk API Key Missing")
 
         # Retrieve session_id from the JSON body
@@ -55,7 +61,7 @@ def require_clerk_session(f):
         user_id = data.get("userId")
         email = data.get("email")
         if not session_id:
-            #api_bp.logger.debug('No session id')
+            # api_bp.logger.debug('No session id')
             abort(400, description="Session ID required")
 
         # Prepare the request
@@ -63,8 +69,9 @@ def require_clerk_session(f):
             'Authorization': f'Bearer {clerk_secret}',
             'Content-Type': 'application/json'
         }
-        url = f'https://api.clerk.com/v1/sessions/{session_id}'  # Assuming session_id needs to be a part of the URL
-        #api_bp.logger.debug(url)
+        # Assuming session_id needs to be a part of the URL
+        url = f'https://api.clerk.com/v1/sessions/{session_id}'
+        # api_bp.logger.debug(url)
 
         # Send a request to the Clark API
         response = requests.get(url, headers=headers)
@@ -76,37 +83,46 @@ def require_clerk_session(f):
                 abort(401, description="Session is not active")
             verified_user_id = response_json.get('user_id')
             if not verified_user_id or verified_user_id == "":
-                #api_bp.logger.debug('Clerk User not found')
+                # api_bp.logger.debug('Clerk User not found')
                 abort(401, description="User not found")
 
-            #api_bp.logger.debug(f"recieved user: {user_id} clerk verified user: {verified_user_id}")
+            # api_bp.logger.debug(f"recieved user: {user_id} clerk verified user: {verified_user_id}")
 
             if user_id != verified_user_id:
                 abort(401, f"Mismatched Users {user_id} {verified_user_id}")
-            
+
             user = Users.query.filter_by(username=user_id).first()
 
             if not user:
-                #api_bp.logger.debug('Adding user')
+                # api_bp.logger.debug('Adding user')
                 password = generate_random_password()
                 user = Users(username=user_id, password=password, email=email)
                 db.session.add(user)
                 db.session.commit()
 
-
         else:
-            #api_bp.logger.debug('Clerk User not found')
+            # api_bp.logger.debug('Clerk User not found')
             abort(401, description="Failed to verify session with Clerk API")
 
-        #api_bp.logger.debug('All good. Auth successful')
+        # api_bp.logger.debug('All good. Auth successful')
         return partial(f, user=user)(*args, **kwargs)
 
     return decorated_function
-        
 
 
-def openai_request(request):
-    request_json = request.get_json()
+def openai_request(post_request):
+    """
+    Process a POST request for an AI model, preparing data for the request.
+
+    Args:
+        post_request (flask.Request): The POST request received from a client.
+
+    Returns:
+        dict: A dictionary that contains the processed request data, including prompts,
+        model selection, and additional information based on the model and available
+        data like persona and output format if applicable.
+    """
+    request_json = post_request.get_json()
     prompt = request_json["prompt"]
     model = request_json["model"]
     system_prompt = ""
@@ -124,7 +140,8 @@ def openai_request(request):
         persona = Persona.query.get(persona_id)
         output_format = OutputFormat.query.get(output_format_id)
         if persona and output_format:
-            request_dict["system_prompt"] = persona.prompt + " " + output_format.prompt
+            request_dict["system_prompt"] = persona.prompt + \
+                " " + output_format.prompt
             system_prompt = request_dict["system_prompt"]
         messages = [{"role": "system", "content": system_prompt}]
         messages += response_history
@@ -139,9 +156,12 @@ def openai_request(request):
     return request_dict
 
 # Routing
+
+
 @api_bp.route('/')
 def index():
     return render_template('index.html')
+
 
 @api_bp.route('/api/current_user', methods=['POST'])
 @require_api_key
@@ -159,6 +179,8 @@ def api_clerk_test(user):
 # Personas
 
 # Get all personas
+
+
 @api_bp.route('/api/personas', methods=["GET"])
 @require_api_key
 def api_personas():
@@ -180,11 +202,13 @@ def api_personas():
           application/json: [{"id": 1, "name": "Assistant", "prompt": "You are a helpful assistant."}]
       401:
         description: Unauthorized, invalid or missing API key
-    """    
+    """
     personas = Persona.query.all()
     return personas_json(personas)
 
 # Get single persona
+
+
 @api_bp.route('/api/personas/<int:id>', methods=["GET"])
 @require_api_key
 def api_persona(id):
@@ -220,9 +244,11 @@ def api_persona(id):
         persona = Persona.query.get(id)
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
-    return jsonify(persona.toDict())
+    return jsonify(persona.to_dict())
 
 # Add a persona
+
+
 @api_bp.route("/api/personas", methods=["POST"])
 @require_api_key
 def api_add_persona():
@@ -265,6 +291,8 @@ def api_add_persona():
         return jsonify({"message": "An unexpected error occurred."}), 500
 
 # Update a Persona
+
+
 @api_bp.route("/api/personas/<int:persona_id>", methods=["PUT"])
 @require_api_key
 def api_update_persona(persona_id):
@@ -328,8 +356,10 @@ def api_update_persona(persona_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": "An unexpected error occurred."}), 500
-    
-# Delete a persona    
+
+# Delete a persona
+
+
 @api_bp.route("/api/personas/<int:id>", methods=["DELETE"])
 @require_api_key
 def api_delete_persona(id):
@@ -372,8 +402,10 @@ def api_delete_persona(id):
         return jsonify({"message": "An unexpected error occurred."}), 500
 
 # Models
-    
+
 # Get all models
+
+
 @api_bp.route('/api/models')
 @require_api_key
 def api_models():
@@ -392,14 +424,16 @@ def api_models():
       200:
         description: Returns a list of all personas
         examples:
-          application/json: [{"id": 1, "api_name": "gpt-4-turbo-preview", "name": "GPT-4 Turbo", "is_vision": false, "is_image_generation": false}]
+          application/json: [{"id": 1, "api_name": "gpt-4-turbo-preview", "name": "GPT-4 Turbo", "is_vision": false, "is_image_generation": false, "api_vendor_id": 1}]
       401:
         description: Unauthorized, invalid or missing API key
-    """ 
+    """
     models = Model.query.all()
     return models_json(models)
 
 # Get single model
+
+
 @api_bp.route('/api/models/<int:id>', methods=["GET"])
 @require_api_key
 def api_model(id):
@@ -423,7 +457,7 @@ def api_model(id):
       200:
         description: Returns a single model based on ID
         examples:
-          application/json: {"id": 1, "api_name": "gpt-3", "name": "GPT-3", "is_vision": false, "is_image_generation": false}
+          application/json: {"id": 1, "api_name": "gpt-3", "name": "GPT-3", "is_vision": false, "is_image_generation": false, "api_vendor_id": 1}
       401:
         description: Unauthorized, invalid or missing API key
       404:
@@ -435,9 +469,11 @@ def api_model(id):
         model = Model.query.get(id)
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
-    return jsonify(model.toDict())
+    return jsonify(model.to_dict())
 
 # Get single model by Model's API name
+
+
 @api_bp.route('/api/models/api_name/<string:api_name>')
 def api_model_api_name(api_name):
     """
@@ -460,7 +496,7 @@ def api_model_api_name(api_name):
       200:
         description: Returns a single model based on API name
         examples:
-          application/json: {"id": 1, "api_name": "gpt-3", "name": "GPT-3", "is_vision": false, "is_image_generation": false}
+          application/json: {"id": 1, "api_name": "gpt-3", "name": "GPT-3", "is_vision": false, "is_image_generation": false, "api_vendor_id": 1}
       401:
         description: Unauthorized, invalid or missing API key
       404:
@@ -469,9 +505,11 @@ def api_model_api_name(api_name):
         description: An unexpected error occurred
     """
     model = Model.query.filter_by(api_name=api_name).first()
-    return jsonify(model.toDict())
+    return jsonify(model.to_dict())
 
-# Delete a model    
+# Delete a model
+
+
 @api_bp.route("/api/models/<int:id>", methods=["DELETE"])
 @require_api_key
 def api_delete_model(id):
@@ -513,6 +551,8 @@ def api_delete_model(id):
 
 # Output Formats
 # Get all Output Formats
+
+
 @api_bp.route('/api/output-formats')
 @require_api_key
 def api_output_formats():
@@ -535,14 +575,16 @@ def api_output_formats():
       401:
         description: Unauthorized, invalid or missing API key
     """
-    #if not current_user.is_admin:
+    # if not current_user.is_admin:
     #    return redirect(url_for('index'))
-    
+
     output_formats = OutputFormat.query.order_by(OutputFormat.id).all()
     # personas_json = json.dumps([ob.__dict__ for ob in personas])
     return output_formats_json(output_formats)
 
 # Get Single Output Format
+
+
 @api_bp.route('/api/output-formats/<int:id>', methods=["GET"])
 @require_api_key
 def api_output_format(id):
@@ -578,9 +620,11 @@ def api_output_format(id):
         output_format = OutputFormat.query.get(id)
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
-    return jsonify(output_format.toDict())
+    return jsonify(output_format.to_dict())
 
 # Add an Output Format from the API
+
+
 @api_bp.route("/api/output-formats", methods=["POST"])
 @require_api_key
 def api_add_output_formats():
@@ -614,7 +658,8 @@ def api_add_output_formats():
         name = request_json["name"]
         prompt = request_json["prompt"]
         render_type_id = request_json["render_type_id"]
-        new_output_format = OutputFormat(name=name, prompt=prompt, render_type_id=render_type_id)
+        new_output_format = OutputFormat(
+            name=name, prompt=prompt, render_type_id=render_type_id)
 
         db.session.add(new_output_format)
         db.session.commit()
@@ -624,6 +669,8 @@ def api_add_output_formats():
         return jsonify({"message": "An unexpected error occurred."}), 500
 
 # Update Output Format
+
+
 @api_bp.route("/api/output-formats/<int:output_format_id>", methods=["PUT"])
 @require_api_key
 def api_update_output_format(output_format_id):
@@ -690,8 +737,10 @@ def api_update_output_format(output_format_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": "An unexpected error occurred."}), 500
-    
+
 # Delete Output Format
+
+
 @api_bp.route("/api/output-formats/<int:id>", methods=["DELETE"])
 @require_api_key
 def api_delete_output_format(id):
@@ -732,9 +781,11 @@ def api_delete_output_format(id):
         return jsonify({"message": "Success"}), 201
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
-    
+
 # Render Types
 # Get all Render Types
+
+
 @api_bp.route('/api/render-types', methods=["GET"])
 @require_api_key
 def api_render_types():
@@ -760,7 +811,35 @@ def api_render_types():
     render_types = RenderType.query.all()
     return render_types_json(render_types)
 
+
+@api_bp.route('/api/api-vendors', methods=["GET"])
+@require_api_key
+def api_api_vendors():
+    """
+    Get All API Vendors
+    ---
+    tags:
+      - API Vendors
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+    responses:
+      200:
+        description: Returns a list of all API vendors
+        examples:
+          application/json: [{"id": 1, "name": "openai"}, {"id": 2, "name": "anthropic"}]
+      401:
+        description: Unauthorized, invalid or missing API key
+    """
+    api_vendors = APIVendor.query.all()
+    return api_vendors_json(api_vendors)
+
 # The main chat/conversation endpoint
+
+
 @api_bp.route('/api/chat', methods=['POST'])
 @require_api_key
 def api_chat():
@@ -842,24 +921,25 @@ def api_chat():
                 "image_url": {"url": image_data, "detail": "low"},
             }
         ]
-        request_dict["model"]='gpt-4-vision-preview'
+        request_dict["model"] = 'gpt-4-vision-preview'
         system_prompt = 'You are a helpful assistant that can describe an image in detail.'
         messages = [{"role": "system", "content": system_prompt}]
         messages += [{"role": "user", "content": content}]
         request_dict["messages"] = messages
 
-        response =  openai.ChatCompletion.create(
+        response = openai.ChatCompletion.create(
             model=request_dict["model"],
             messages=request_dict["messages"],
             max_tokens=1024
         )
         return jsonify(response)
-    
+
     # Use the Anthropic client if an Anthropic model is used.
     # Right now this is hardcoded, but in the future, the model
     # object should be modified to add an API vendor.
     elif request_dict["model"] == 'claude-3-opus-20240229':
-        # Anthropic does not take the system prompt in the message array, so we need to get rid of it
+        # Anthropic does not take the system prompt in the message array,
+        # so we need to get rid of it
         messages = request_dict["messages"]
         del messages[0]
 
@@ -872,18 +952,21 @@ def api_chat():
         )
 
         # We need to convert Anthropic's chat response to be in OpenAI's format
-        message = {"role": "assistant","content": response["content"][0]["text"]}
+        message = {"role": "assistant",
+                   "content": response["content"][0]["text"]}
         return jsonify(message)
 
     # If just a standard chat model, we simply pass it our model and messages object
-    else: 
-        response =  openai.ChatCompletion.create(
+    else:
+        response = openai.ChatCompletion.create(
             model=request_dict["model"],
             messages=request_dict["messages"]
         )
         return jsonify(response["choices"][0]["message"])
 
 # DALLE-3 image generation API
+
+
 @api_bp.route('/api/dalle', methods=['POST'])
 @require_api_key
 def api_dalle():
@@ -943,19 +1026,24 @@ def api_dalle():
     return jsonify(response)
 
 # Get all history for current user
+
+
 @api_bp.route('/api/history', methods=['POST'])
 @require_api_key
 @require_clerk_session
 def api_history(user):
-    #api_bp.logger.debug(f'fetching history for user id: {user.id}')
-    history = ConversationHistory.query.filter_by(user_id=user.id).order_by(ConversationHistory.timestamp.desc()).all()
+    # api_bp.logger.debug(f'fetching history for user id: {user.id}')
+    history = ConversationHistory.query.filter_by(user_id=user.id).order_by(
+        ConversationHistory.timestamp.desc()).all()
     histories = []
     for h in history:
-        histories.append(h.toDict())
-        #api_bp.logger.debug(h.title)
+        histories.append(h.to_dict())
+        # api_bp.logger.debug(h.title)
     return jsonify(histories)
 
 # Save chat as a history object
+
+
 @api_bp.route('/api/save_chat', methods=['POST'])
 @require_api_key
 @require_clerk_session
@@ -968,8 +1056,8 @@ def save_chat(user):
     messages = [{"role": "system", "content": "You are an expert at taking in OpenAI API JSON chat requests and coming up with a brief one sentance title for the chat history."}]
     prompt = "Give me a short, one sentence title for this chat history: " + chat_json_string
     messages += [{"role": "user", "content": prompt}]
-    response =  openai.ChatCompletion.create(
-        model="gpt-3.5-turbo", 
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
         messages=messages
     )
     title = response.choices[0].message.content
@@ -977,7 +1065,7 @@ def save_chat(user):
     # Save the conversation
     conversation_history_entry = ConversationHistory(
         user_id=user.id,
-        title = title,
+        title=title,
         conversation=chat_json_string  # Or however you want to format the content
     )
     db.session.add(conversation_history_entry)
@@ -985,6 +1073,8 @@ def save_chat(user):
     return jsonify({"message": f"Successfully saved chat: {title}"}), 201
 
 # Delete a histroy object
+
+
 @api_bp.route("/api/history/delete/<int:id>", methods=["POST"])
 @require_api_key
 @require_clerk_session

@@ -5,6 +5,8 @@ db = SQLAlchemy()
 
 # Models
 # User model
+
+
 class Users(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(250), unique=True, nullable=False)
@@ -12,24 +14,43 @@ class Users(db.Model):
     email = db.Column(db.String(250), nullable=True)
     is_admin = db.Column(db.Boolean, nullable=True)
 
+
 class Model(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     api_name = db.Column(db.String(255), nullable=False)
     name = db.Column(db.String(255), nullable=False)
     is_vision = db.Column(db.Boolean, nullable=False, default=False)
     is_image_generation = db.Column(db.Boolean, nullable=False, default=False)
+    api_vendor_id = db.Column(
+        db.Integer, db.ForeignKey('api_vendor.id'), nullable=True)
+    api_vendor = db.relationship(
+        'APIVendor', backref=db.backref('api_vendors', lazy=True))
 
-    def toDict(self):
+    def to_dict(self):
         model_obj = {
             "id": self.id,
             "api_name": self.api_name,
             "name": self.name,
             "is_vision": self.is_vision,
-            "is_image_generation": self.is_image_generation
+            "is_image_generation": self.is_image_generation,
+            "api_vendor_id": self.api_vendor_id
         }
         return model_obj
 
-#ConversationHistory model (for storing conversations)
+
+class APIVendor(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+
+    def to_dict(self):
+        api_vendor_obj = {
+            "id": self.id,
+            "name": self.name,
+        }
+        return api_vendor_obj
+
+
+# ConversationHistory model (for storing conversations)
 class ConversationHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -40,12 +61,14 @@ class ConversationHistory(db.Model):
     # Represent the object when printed
     def __repr__(self):
         return f'<ConversationHistory {self.id}>'
-    
-    # Get a dict of the ConversationHistory object
-    def toDict(self):
-       return dict(id=self.id, title=self.title, conversation=self.conversation)
 
-# Persona Model (sets the OpenAI system prompt)    
+    # Get a dict of the ConversationHistory object
+    def to_dict(self):
+        return dict(id=self.id, title=self.title, conversation=self.conversation)
+
+# Persona Model (sets the OpenAI system prompt)
+
+
 class Persona(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
@@ -53,7 +76,7 @@ class Persona(db.Model):
     owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     owner = db.relationship('Users', backref=db.backref('personas', lazy=True))
 
-    def toDict(self):
+    def to_dict(self):
         persona_obj = {
             "id": self.id,
             "name": self.name,
@@ -63,16 +86,21 @@ class Persona(db.Model):
         return persona_obj
 
 # Output format model
+
+
 class OutputFormat(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     prompt = db.Column(db.Text, nullable=False)
     owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    owner = db.relationship('Users', backref=db.backref('output_formats', lazy=True))
-    render_type_id = db.Column(db.Integer, db.ForeignKey('render_type.id'), nullable=True)
-    render_type = db.relationship('RenderType', backref=db.backref('output_formats', lazy=True))
+    owner = db.relationship(
+        'Users', backref=db.backref('output_formats', lazy=True))
+    render_type_id = db.Column(
+        db.Integer, db.ForeignKey('render_type.id'), nullable=True)
+    render_type = db.relationship(
+        'RenderType', backref=db.backref('output_formats', lazy=True))
 
-    def toDict(self):
+    def to_dict(self):
         render_type = RenderType.query.get(self.render_type_id)
         output_format_obj = {
             "id": self.id,
@@ -85,17 +113,21 @@ class OutputFormat(db.Model):
         return output_format_obj
 
 # API Key model
+
+
 class APIKey(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     key = db.Column(db.String(255), nullable=False)
 
 # Render Types
+
+
 class RenderType(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
 
-    def toDict(self):
+    def to_dict(self):
         render_type_obj = {
             "id": self.id,
             "name": self.name,
