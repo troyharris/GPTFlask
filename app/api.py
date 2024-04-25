@@ -428,7 +428,7 @@ def api_models():
       401:
         description: Unauthorized, invalid or missing API key
     """
-    models = Model.query.all()
+    models = Model.query.order_by(Model.id).all()
     return models_json(models)
 
 # Get single model
@@ -921,7 +921,7 @@ def api_chat():
                 "image_url": {"url": image_data, "detail": "low"},
             }
         ]
-        request_dict["model"] = 'gpt-4-vision-preview'
+        request_dict["model"] = 'gpt-4-turbo'
         system_prompt = 'You are a helpful assistant that can describe an image in detail.'
         messages = [{"role": "system", "content": system_prompt}]
         messages += [{"role": "user", "content": content}]
@@ -932,7 +932,7 @@ def api_chat():
             messages=request_dict["messages"],
             max_tokens=1024
         )
-        return jsonify(response)
+        return jsonify(response["choices"][0]["message"])
 
     # Use the Anthropic client if an Anthropic model is used.
     # Right now this is hardcoded, but in the future, the model
@@ -950,10 +950,9 @@ def api_chat():
             system=request_dict["system_prompt"],
             messages=messages
         )
-
         # We need to convert Anthropic's chat response to be in OpenAI's format
         message = {"role": "assistant",
-                   "content": response["content"][0]["text"]}
+                   "content": response.content[0].text}
         return jsonify(message)
 
     # If just a standard chat model, we simply pass it our model and messages object
