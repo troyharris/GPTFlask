@@ -29,12 +29,15 @@ defaults = [
     "INSERT INTO output_format (name, prompt, render_type_id) VALUES ('Markdown', 'Format your response in Markdown format.', (SELECT id FROM render_type WHERE name = 'markdown'))",
     "INSERT INTO output_format (name, prompt, render_type_id) VALUES ('Plain Text', 'Format your response in plain text. Do not use Markdown or HTML.', (SELECT id FROM render_type WHERE name = 'html'))",
     "INSERT INTO output_format (name, prompt, render_type_id) VALUES ('HTML/Tailwind', 'Format your response as HTML using Bootstrap 5 HTML tags and code. Use hyperlinks to link to resources but only if helpful and possible. Do not use Markdown or wrap your response in markdown. Only include what is between the html body tag. Do not use ``` tags.', (SELECT id FROM render_type WHERE name = 'html'))",
+    "INSERT INTO model (api_name, name, is_vision, is_image_generation, api_vendor_id) VALUES ('gpt-4o', 'GPT-4o', false, false, (SELECT id FROM api_vendor WHERE name = 'openai'))",
     "INSERT INTO model (api_name, name, is_vision, is_image_generation, api_vendor_id) VALUES ('gpt-4-turbo-preview', 'GPT-4 Turbo', false, false, (SELECT id FROM api_vendor WHERE name = 'openai'))",
     "INSERT INTO model (api_name, name, is_vision, is_image_generation, api_vendor_id) VALUES ('gpt-4', 'GPT-4 Classic', false, false, (SELECT id FROM api_vendor WHERE name = 'openai'))",
     "INSERT INTO model (api_name, name, is_vision, is_image_generation, api_vendor_id) VALUES ('gpt-3.5-turbo', 'GPT 3.5 Turbo', false, false, (SELECT id FROM api_vendor WHERE name = 'openai'))",
+    "INSERT INTO model (api_name, name, is_vision, is_image_generation, api_vendor_id) VALUES ('gpt-4o', 'GPT-4o Vision', true, false, (SELECT id FROM api_vendor WHERE name = 'openai'))",
     "INSERT INTO model (api_name, name, is_vision, is_image_generation, api_vendor_id) VALUES ('gpt-4-vision-preview', 'GPT-4 Vision', true, false, (SELECT id FROM api_vendor WHERE name = 'openai'))",
     "INSERT INTO model (api_name, name, is_vision, is_image_generation, api_vendor_id) VALUES ('dall-e-3', 'DALL-E-3', false, true, (SELECT id FROM api_vendor WHERE name = 'openai'))",
     "INSERT INTO model (api_name, name, is_vision, is_image_generation, api_vendor_id) VALUES ('claude-3-opus-20240229', 'Claude 3 Opus', false, false, (SELECT id FROM api_vendor WHERE name = 'anthropic'))",
+    "INSERT INTO model (api_name, name, is_vision, is_image_generation, api_vendor_id) VALUES ('claude-3-5-sonnet-20240620', 'Claude 3 Sonnet 3.5', false, false, (SELECT id FROM api_vendor WHERE name = 'anthropic'))",
 ]
 
 # Connect to the PostgreSQL database
@@ -50,6 +53,8 @@ conn = psycopg2.connect(
 cursor = conn.cursor()
 
 # Function to insert default records into a table
+
+
 def insert_default_records(default_records):
     # Generate the SQL for insert ignoring duplicates
     # Assuming each table has a unique constraint on the first column
@@ -63,6 +68,7 @@ def insert_default_records(default_records):
             conn.rollback()
         else:
             conn.commit()
+
 
 # Insert default records into tables
 insert_default_records(defaults)

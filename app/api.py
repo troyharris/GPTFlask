@@ -137,6 +137,7 @@ def openai_request(post_request):
         persona_id = request_json["personaId"]
         output_format_id = request_json["outputFormatId"]
         image_data = request_json["imageData"]
+        model_id = request_json["modelId"]
         persona = Persona.query.get(persona_id)
         output_format = OutputFormat.query.get(output_format_id)
         if persona and output_format:
@@ -149,7 +150,8 @@ def openai_request(post_request):
             "image_data": image_data,
             "persona": persona,
             "output_format": output_format,
-            "messages": messages
+            "messages": messages,
+            "model_id": model_id,
         }
         request_dict.update(request_dict_additions)
 
@@ -906,9 +908,20 @@ def api_chat():
         description: An unexpected error occurred
     """
     request_dict = openai_request(request)
+    model_id = request_dict["model_id"]
+    model = Model.query.get(model_id)
 
-    # If a file was uploaded, load the vision model no matter what and override the system prompt
-    if request_dict["image_data"] and request_dict["image_data"] != '':
+    if not model:
+        return jsonify({"message": "Model not found"}), 404
+
+    api_vendor_name = model.api_vendor.name
+
+    print("Is the model a vision model?")
+    print(model.is_vision)
+
+    # If a file was uploaded and the model is a vision model, use the vision API and override the system prompt
+    if request_dict["image_data"] and request_dict["image_data"] != '' and model.is_vision:
+        print("Is a vision model")
         prompt = request_dict['prompt']
         image_data = request_dict["image_data"]
         content = [
@@ -921,7 +934,6 @@ def api_chat():
                 "image_url": {"url": image_data, "detail": "low"},
             }
         ]
-        request_dict["model"] = 'gpt-4-turbo'
         system_prompt = 'You are a helpful assistant that can describe an image in detail.'
         messages = [{"role": "system", "content": system_prompt}]
         messages += [{"role": "user", "content": content}]
@@ -934,10 +946,8 @@ def api_chat():
         )
         return jsonify(response["choices"][0]["message"])
 
-    # Use the Anthropic client if an Anthropic model is used.
-    # Right now this is hardcoded, but in the future, the model
-    # object should be modified to add an API vendor.
-    elif request_dict["model"] == 'claude-3-opus-20240229':
+    # Use the Anthropic client if the API vendor is Anthropic
+    elif api_vendor_name.lower() == 'anthropic':
         # Anthropic does not take the system prompt in the message array,
         # so we need to get rid of it
         messages = request_dict["messages"]
@@ -955,8 +965,8 @@ def api_chat():
                    "content": response.content[0].text}
         return jsonify(message)
 
-    # If just a standard chat model, we simply pass it our model and messages object
-    else:
+    # If the API vendor is OpenAI, we simply pass it our model and messages object
+    elif api_vendor_name.lower() == 'openai':
         response = openai.ChatCompletion.create(
             model=request_dict["model"],
             messages=request_dict["messages"]
