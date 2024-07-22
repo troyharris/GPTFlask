@@ -509,6 +509,85 @@ def api_model_api_name(api_name):
     model = Model.query.filter_by(api_name=api_name).first()
     return jsonify(model.to_dict())
 
+
+# Create a model
+
+@api_bp.route('/api/models', methods=['POST'])
+@require_api_key
+def api_add_model():
+    """
+    Add a New Model
+    ---
+    tags:
+      - Models
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+      - in: body
+        name: body
+        description: JSON object containing model details
+        required: true
+        schema:
+          type: object
+          properties:
+            api_name:
+              type: string
+            name:
+              type: string
+            is_vision:
+              type: boolean
+            is_image_generation:
+              type: boolean
+            api_vendor_id:
+              type: integer
+          example:
+            api_name: "gpt-4"
+            name: "GPT-4"
+            is_vision: false
+            is_image_generation: false
+            api_vendor_id: 1
+    responses:
+      201:
+        description: Model created successfully
+        examples:
+          application/json: {"message": "Model created successfully", "model": {"id": 2, "api_name": "gpt-4", "name": "GPT-4", "is_vision": false, "is_image_generation": false, "api_vendor_id": 1}}
+      400:
+        description: Invalid input
+      401:
+        description: Unauthorized, invalid or missing API key
+      500:
+        description: An unexpected error occurred
+    """
+    try:
+        data = request.get_json()
+        api_name = data.get('api_name')
+        name = data.get('name')
+        is_vision = data.get('is_vision', False)
+        is_image_generation = data.get('is_image_generation', False)
+        api_vendor_id = data.get('api_vendor_id')
+
+        if not api_name or not name or not api_vendor_id:
+            return jsonify({"message": "Invalid input"}), 400
+
+        new_model = Model(
+            api_name=api_name,
+            name=name,
+            is_vision=is_vision,
+            is_image_generation=is_image_generation,
+            api_vendor_id=api_vendor_id
+        )
+
+        db.session.add(new_model)
+        db.session.commit()
+
+        return jsonify({"message": "Model created successfully", "model": new_model.to_dict()}), 201
+    except Exception as e:
+        return jsonify({"message": "An unexpected error occurred."}), 500
+
+
 # Delete a model
 
 
