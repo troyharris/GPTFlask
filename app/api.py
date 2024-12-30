@@ -144,9 +144,9 @@ def openai_request(post_request):
             request_dict["system_prompt"] = persona.prompt + \
                 " " + output_format.prompt
             system_prompt = request_dict["system_prompt"]
-        # o1 models don't support the system prompt and requires "developer"
+        # o1 models don't support the system prompt and requires "user"
         if model.startswith("o1"):
-            messages = [{"role": "developer", "content": system_prompt}]
+            messages = [{"role": "user", "content": system_prompt}]
         else:
             messages = [{"role": "system", "content": system_prompt}]
         messages += response_history
