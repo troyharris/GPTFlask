@@ -591,6 +591,89 @@ def api_add_model():
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
 
+# Update a model
+
+
+@api_bp.route('/api/models/<int:model_id>', methods=['PUT'])
+@require_api_key
+def api_update_model(model_id):
+    """
+    Update an existing Model
+    ---
+    tags:
+      - Models
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+      - in: body
+        name: body
+        description: JSON object containing model details
+        required: true
+        schema:
+          type: object
+          properties:
+            api_name:
+              type: string
+            name:
+              type: string
+            is_vision:
+              type: boolean
+            is_image_generation:
+              type: boolean
+            api_vendor_id:
+              type: integer
+          example:
+            api_name: "gpt-4"
+            name: "GPT-4"
+            is_vision: false
+            is_image_generation: false
+            api_vendor_id: 1
+    responses:
+      201:
+        description: Model updated successfully
+        examples:
+          application/json: {"message": "Model updated successfully", "model": {"id": 2, "api_name": "gpt-4", "name": "GPT-4", "is_vision": false, "is_image_generation": false, "api_vendor_id": 1}}
+      400:
+        description: Invalid input
+      401:
+        description: Unauthorized, invalid or missing API key
+      500:
+        description: An unexpected error occurred
+    """
+    request_json = request.get_json()
+
+    if not request_json:
+        return jsonify({"message": "No input data provided"}), 400
+
+    model = Model.query.get(model_id)
+    if not model:
+        return jsonify({"message": "model not found"}), 404
+
+    try:
+        api_name = request_json.get('api_name')
+        name = request_json.get('name')
+        is_vision = request_json.get('is_vision', False)
+        is_image_generation = request_json.get('is_image_generation', False)
+        api_vendor_id = request_json.get('api_vendor_id')
+
+        if not api_name or not name or not api_vendor_id:
+            return jsonify({"message": "Invalid input"}), 400
+
+        model.api_name = api_name
+        model.name = name
+        model.is_vision = is_vision
+        model.is_image_generation = is_image_generation
+        model.api_vendor_id = api_vendor_id
+
+        print(is_vision)
+        db.session.commit()
+        return jsonify({"message": "Model created successfully", "model": model.to_dict()}), 201
+    except Exception as e:
+        return jsonify({"message": "An unexpected error occurred."}), 500
+
 
 # Delete a model
 
