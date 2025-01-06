@@ -133,3 +133,21 @@ class RenderType(db.Model):
             "name": self.name,
         }
         return render_type_obj
+
+# User Settings
+
+class UserSettings(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    appearance_mode = db.Column(db.String(10), nullable=False, default='light') # Values: 'dark' or 'light'
+    summary_model_preference = db.Column(db.String(255), nullable=False, default="gpt-4o-mini")
+    user = db.relationship('Users', backref=db.backref('settings', lazy=True))
+
+    def to_dict(self):
+        settings_obj = {
+            "id": self.id,
+            "user_id": self.user_id,
+            "appearance_mode": self.appearance_mode,
+            "summary_model_preference": self.ai_model_preference
+        }
+        return settings_obj
