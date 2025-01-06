@@ -1232,7 +1232,7 @@ def save_chat(user):
     prompt = "Give me a short, one sentence title for this chat history: " + chat_json_string
     messages += [{"role": "user", "content": prompt}]
     response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=messages
     )
     title = response.choices[0].message.content
