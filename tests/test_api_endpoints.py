@@ -1,6 +1,6 @@
 from app.model import Persona, OutputFormat, APIKey, db, Model
 from app.utils import get_single_api_key, insert_api_key
-from app.api import get_token_from_header, openai_request, save_chat, api_chat
+from app.api import get_token_from_header, ai_request, save_chat, api_chat
 import json
 from unittest.mock import Mock, patch, MagicMock
 import pytest
@@ -50,7 +50,7 @@ def test_insert_api_key(test_client):
 def test_openai_request_with_dalle(test_client, mock_request_data_dalle):
     request = Mock()
     request.get_json.return_value = mock_request_data_dalle
-    res = openai_request(request)
+    res = ai_request(request)
     # For Dall-E model, it should only include the initial keys
     assert res == {
         "prompt": "Generate a sunset image",
@@ -69,7 +69,7 @@ def test_openai_request_with_other_model(test_client, mock_request_data_other_mo
             
             request = Mock()
             request.get_json.return_value = mock_request_data_other_model
-            res = openai_request(request)
+            res = ai_request(request)
             # For other models, it should update the dictionary with additional keys
             expected = {
                 "prompt": "Write a poem",

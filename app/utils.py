@@ -24,10 +24,13 @@ and custom functions and models for API key handling.
 import json
 import os
 import string
+from anthropic import Anthropic
+import openai
+from dotenv import load_dotenv
 
 from generate_api_key import generate_api_key
 
-from .model import APIKey, db
+from .model import APIKey, db, UserSettings, Model
 
 
 def personas_json(personas):
@@ -87,3 +90,40 @@ def insert_api_key():
     new_api_key = APIKey(name="test", key=api_key)
     db.session.add(new_api_key)
     db.session.commit()
+
+def get_summary_model(user_id):
+    settings = UserSettings.query.filter_by(user_id=user_id).first()
+    return Model.query.get(settings.summary_model_preference_id)
+
+def anthropic_request(request):
+    anthropic_client = Anthropic()
+    # Anthropic does not take the system prompt in the message array,
+    # so we need to get rid of it
+    messages = request["messages"]
+    del messages[0]
+
+    # Call Anthropic's client and send the messages.
+    response = anthropic_client.messages.create(
+        model=request["model"],
+        max_tokens=1024,
+        system=request["system_prompt"],
+        messages=messages
+    )
+    # We need to convert Anthropic's chat response to be in OpenAI's format
+    return {"role": "assistant", "content": response.content[0].text}
+
+def openai_request(request):
+        load_dotenv()
+        openai.api_key = os.environ.get("OPENAI_API_KEY")
+        response = openai.ChatCompletion.create(
+            model=request["model"],
+            messages=request["messages"]
+        )
+        return response["choices"][0]["message"]
+
+def system_prompt_dict(system_prompt, model_name):
+    if model_name.startswith("o1"):
+        messages = [{"role": "user", "content": system_prompt}]
+    else:
+        messages = [{"role": "system", "content": system_prompt}]
+    return messages

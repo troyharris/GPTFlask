@@ -8,9 +8,10 @@ from dotenv import load_dotenv
 from flask import Blueprint, abort, jsonify, render_template, request
 
 from .model import (APIKey, APIVendor, ConversationHistory, Model,
-                    OutputFormat, Persona, RenderType, Users, db)
+                    OutputFormat, Persona, RenderType, Users, UserSettings, db)
 from .utils import (api_vendors_json, generate_random_password, models_json,
-                    output_formats_json, personas_json, render_types_json)
+                    output_formats_json, personas_json, render_types_json,
+                    get_summary_model, anthropic_request, openai_request, system_prompt_dict)
 
 api_bp = Blueprint('api', __name__)
 load_dotenv()
@@ -110,7 +111,7 @@ def require_clerk_session(f):
     return decorated_function
 
 
-def openai_request(post_request):
+def ai_request(post_request):
     """
     Process a POST request for an AI model, preparing data for the request.
 
@@ -144,11 +145,7 @@ def openai_request(post_request):
             request_dict["system_prompt"] = persona.prompt + \
                 " " + output_format.prompt
             system_prompt = request_dict["system_prompt"]
-        # o1 models don't support the system prompt and requires "user"
-        if model.startswith("o1"):
-            messages = [{"role": "user", "content": system_prompt}]
-        else:
-            messages = [{"role": "system", "content": system_prompt}]
+        messages = system_prompt_dict(system_prompt, model)
         messages += response_history
         request_dict_additions = {
             "image_data": image_data,
@@ -1073,7 +1070,7 @@ def api_chat():
       500:
         description: An unexpected error occurred
     """
-    request_dict = openai_request(request)
+    request_dict = ai_request(request)
     model_id = request_dict["model_id"]
     model = Model.query.get(model_id)
 
@@ -1114,30 +1111,33 @@ def api_chat():
 
     # Use the Anthropic client if the API vendor is Anthropic
     elif api_vendor_name.lower() == 'anthropic':
+        message = anthropic_request(request_dict)
         # Anthropic does not take the system prompt in the message array,
         # so we need to get rid of it
-        messages = request_dict["messages"]
-        del messages[0]
+        #messages = request_dict["messages"]
+        #del messages[0]
 
         # Call Anthropic's client and send the messages.
-        response = anthropic_client.messages.create(
-            model=request_dict["model"],
-            max_tokens=1024,
-            system=request_dict["system_prompt"],
-            messages=messages
-        )
+        #response = anthropic_client.messages.create(
+        #    model=request_dict["model"],
+        #    max_tokens=1024,
+        #    system=request_dict["system_prompt"],
+        #    messages=messages
+        #)
         # We need to convert Anthropic's chat response to be in OpenAI's format
-        message = {"role": "assistant",
-                   "content": response.content[0].text}
+        #message = {"role": "assistant",
+        #           "content": response.content[0].text}
         return jsonify(message)
 
     # If the API vendor is OpenAI, we simply pass it our model and messages object
     elif api_vendor_name.lower() == 'openai':
-        response = openai.ChatCompletion.create(
-            model=request_dict["model"],
-            messages=request_dict["messages"]
-        )
-        return jsonify(response["choices"][0]["message"])
+        message = openai_request(request_dict)
+        #response = openai.ChatCompletion.create(
+        #    model=request_dict["model"],
+        #    messages=request_dict["messages"]
+        #)
+        #return jsonify(response["choices"][0]["message"])
+        return jsonify(message)
 
 # DALLE-3 image generation API
 
@@ -1188,7 +1188,7 @@ def api_dalle():
       500:
         description: An unexpected error occurred
     """
-    request_dict = openai_request(request)
+    request_dict = ai_request(request)
     prompt = request_dict["prompt"]
     response = openai.Image.create(
         model="dall-e-3",
@@ -1227,15 +1227,30 @@ def save_chat(user):
     chat_json = jsonify(request_json)
     chat_json_string = chat_json.get_data(as_text=True)
 
+    summary_model = get_summary_model(user.id)
+    if summary_model:
+        summary_model_name = summary_model.api_name
+        api_vendor = summary_model.api_vendor.name
+    else:
+        summary_model_name = "gpt-4o-mini"
+        api_vendor_name = "openai"
+
     # Ask ChatGPT to summerize the conversation as a single sentence and use for the conversation title.
-    messages = [{"role": "system", "content": "You are an expert at taking in OpenAI API JSON chat requests and coming up with a brief one sentance title for the chat history."}]
+    system_prompt = "You are an expert at taking in OpenAI API JSON chat requests and coming up with a brief one sentance title for the chat history."
+    messages = system_prompt_dict(system_prompt, summary_model_name)
     prompt = "Give me a short, one sentence title for this chat history: " + chat_json_string
     messages += [{"role": "user", "content": prompt}]
-    response = openai.ChatCompletion.create(
-        model="gpt-4o-mini",
-        messages=messages
-    )
-    title = response.choices[0].message.content
+    request_dict = {
+        "model": summary_model_name,
+        "system_prompt": system_prompt,
+        "messages": messages
+    }
+
+    if api_vendor.lower() == "anthropic":
+        response = anthropic_request(request_dict)
+    elif api_vendor.lower() == "openai":
+        response = openai_request(request_dict)
+    title = response["content"]
 
     # Save the conversation
     conversation_history_entry = ConversationHistory(
@@ -1245,7 +1260,7 @@ def save_chat(user):
     )
     db.session.add(conversation_history_entry)
     db.session.commit()
-    return jsonify({"message": f"Successfully saved chat: {title}"}), 201
+    return jsonify({"message": f"Successfully saved chat: {title} using {summary_model_name}"}), 201
 
 # Delete a histroy object
 
@@ -1264,3 +1279,111 @@ def api_delete_history(id, user):
         return jsonify({"message": "Error: Record user did not match logged in user"}), 500
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
+    
+# User Settings
+
+# Get or create user settings
+@api_bp.route('/api/user-settings', methods=['POST'])
+@require_api_key
+@require_clerk_session
+def api_get_user_settings(user):
+    print("Fetching user settings")
+    print(user.id)
+    """
+    Get User Settings
+    ---
+    tags:
+      - User Settings
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+    responses:
+      200:
+        description: Returns the user's settings
+        examples:
+          application/json: {"id": 1, "user_id": 1, "appearance_mode": "light", "summary_model_preference_id": 1, "summary_model_preference": "GPT-3.5-Turbo"}
+      401:
+        description: Unauthorized, invalid or missing API key
+      404:
+        description: User settings not found
+      500:
+        description: An unexpected error occurred
+    """
+    try:
+        settings = UserSettings.query.filter_by(user_id=user.id).first()
+        if not settings:
+          settings = UserSettings(user_id=user.id)
+          db.session.add(settings)
+          db.session.commit()
+          settings = UserSettings.query.filter_by(user_id=user.id).first()
+        return jsonify(settings.to_dict()), 200
+    except Exception as e:
+        return jsonify({"message": "An unexpected error occurred."}), 500
+
+# Update user settings
+@api_bp.route('/api/user-settings/<int:setting_id>', methods=['PUT'])
+@require_api_key
+#@require_clerk_session
+def api_update_user_settings(setting_id):
+    """
+    Create or Update User Settings
+    ---
+    tags:
+      - User Settings
+    parameters:
+      - name: Authorization
+        in: header
+        type: string
+        required: true
+        description: API key (Bearer Token)
+      - in: body
+        name: body
+        description: JSON object containing user settings
+        required: true
+        schema:
+          type: object
+          properties:
+            appearance_mode:
+              type: string
+            summary_model_preference_id:
+              type: integer
+    responses:
+      200:
+        description: Returns a success message and updated settings
+        examples:
+          application/json: {"message": "User settings updated successfully", "settings": {"id": 1, "user_id": 1, "appearance_mode": "dark", "summary_model_preference_id": 2, "summary_model_preference": "GPT-4"}}
+      400:
+        description: Invalid input
+      401:
+        description: Unauthorized, invalid or missing API key
+      500:
+        description: An unexpected error occurred
+    """
+    print("Updating user settings")
+    print(request)
+    try:
+      print(request)
+      request_json = request.get_json()
+      print(request_json)
+
+      if not request_json:
+          return jsonify({"message": "No input data provided"}), 400
+
+      settings = UserSettings.query.get(setting_id)
+      if not settings:
+          return jsonify({"message": "Settings not found"}), 404
+
+      if 'appearance_mode' in request_json:
+          settings.appearance_mode = request_json['appearance_mode']
+      if 'summary_model_preference_id' in request_json:
+          settings.summary_model_preference_id = request_json['summary_model_preference_id']
+
+      db.session.commit()
+      return jsonify({"message": "User settings updated successfully", "settings": settings.to_dict()}), 200
+    except Exception as e:
+      db.session.rollback()
+      return jsonify({"message": "An unexpected error occurred."}), 500
+
