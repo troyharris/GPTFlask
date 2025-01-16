@@ -27,13 +27,11 @@ import string
 from anthropic import Anthropic
 import openai
 import google.generativeai as genai
-from google.genai import types
 from dotenv import load_dotenv
 
 from generate_api_key import generate_api_key
 
 from .model import APIKey, db, UserSettings, Model
-
 
 def personas_json(personas):
     persona_array = []
@@ -42,13 +40,11 @@ def personas_json(personas):
         persona_array.append(persona_obj)
     return json.dumps(persona_array)
 
-
 def models_json(models):
     models_array = []
     for model in models:
         models_array.append(model.to_dict())
     return json.dumps(models_array)
-
 
 def output_formats_json(output_formats):
     output_formats_array = []
@@ -57,13 +53,11 @@ def output_formats_json(output_formats):
         output_formats_array.append(output_format_obj)
     return json.dumps(output_formats_array)
 
-
 def render_types_json(render_types):
     render_types_array = []
     for render_type in render_types:
         render_types_array.append(render_type.to_dict())
     return json.dumps(render_types_array)
-
 
 def api_vendors_json(api_vendors):
     api_vendors_array = []
@@ -74,18 +68,15 @@ def api_vendors_json(api_vendors):
 # When an account is created via Google, a password still needs to be created but
 # doesn't need to be used.
 
-
 def generate_random_password():
     chars = string.ascii_letters + string.digits + '+/'
     assert 256 % len(chars) == 0  # non-biased later modulo
     pwd_len = 32
     return ''.join(chars[c % len(chars)] for c in os.urandom(pwd_len))
 
-
 def get_single_api_key():
     apikey = APIKey.query.first()
     return apikey.key
-
 
 def insert_api_key():
     api_key = generate_api_key()
@@ -165,8 +156,8 @@ def google_request(request):
     response = model.generate_content(
         contents=messages
     )
+    print(response)
     return {"role": "assistant", "content": response.text}
-
 
 def system_prompt_dict(system_prompt, model_name):
     if model_name.startswith("o1"):

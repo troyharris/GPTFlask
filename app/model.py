@@ -21,6 +21,7 @@ class Model(db.Model):
     name = db.Column(db.String(255), nullable=False)
     is_vision = db.Column(db.Boolean, nullable=False, default=False)
     is_image_generation = db.Column(db.Boolean, nullable=False, default=False)
+    is_thinking = db.Column(db.Boolean, nullable=False, default=False)
     api_vendor_id = db.Column(
         db.Integer, db.ForeignKey('api_vendor.id'), nullable=True)
     api_vendor = db.relationship(
@@ -33,6 +34,7 @@ class Model(db.Model):
             "name": self.name,
             "is_vision": self.is_vision,
             "is_image_generation": self.is_image_generation,
+            "is_thinking": self.is_thinking,
             "api_vendor_id": self.api_vendor_id
         }
         return model_obj

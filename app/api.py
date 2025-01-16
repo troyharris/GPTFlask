@@ -154,6 +154,7 @@ def ai_request(post_request):
             "output_format": output_format,
             "messages": messages,
             "model_id": model_id,
+            "thinking_mode": False
         }
         request_dict.update(request_dict_additions)
 
@@ -569,6 +570,7 @@ def api_add_model():
         name = data.get('name')
         is_vision = data.get('is_vision', False)
         is_image_generation = data.get('is_image_generation', False)
+        is_thinking = data.get('is_thinking', False)
         api_vendor_id = data.get('api_vendor_id')
 
         if not api_name or not name or not api_vendor_id:
@@ -579,6 +581,7 @@ def api_add_model():
             name=name,
             is_vision=is_vision,
             is_image_generation=is_image_generation,
+            is_thinking = is_thinking,
             api_vendor_id=api_vendor_id
         )
 
@@ -655,6 +658,7 @@ def api_update_model(model_id):
         name = request_json.get('name')
         is_vision = request_json.get('is_vision', False)
         is_image_generation = request_json.get('is_image_generation', False)
+        is_thinking = request_json.get('is_thinking', False)
         api_vendor_id = request_json.get('api_vendor_id')
 
         if not api_name or not name or not api_vendor_id:
@@ -664,6 +668,7 @@ def api_update_model(model_id):
         model.name = name
         model.is_vision = is_vision
         model.is_image_generation = is_image_generation
+        model.is_thinking = is_thinking
         model.api_vendor_id = api_vendor_id
 
         print(is_vision)
