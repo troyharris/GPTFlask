@@ -26,7 +26,7 @@ import os
 import string
 from anthropic import Anthropic
 import openai
-from google import genai
+import google.generativeai as genai
 from google.genai import types
 from dotenv import load_dotenv
 
@@ -97,6 +97,33 @@ def get_summary_model(user_id):
     settings = UserSettings.query.filter_by(user_id=user_id).first()
     return Model.query.get(settings.summary_model_preference_id)
 
+def openai_to_google_messages(messages):
+    """
+    Replace all instances of "content" with "parts" and make it an array
+    with a single object in a list of dictionaries.
+
+    Args:
+        data (list): A list of dictionaries, each containing 'role' and 'content' keys.
+
+    Returns:
+        list: A new list with updated dictionaries where 'content' is replaced by 'parts'.
+    """
+    # Create a new list to hold the modified dictionaries
+    new_messages = []
+    del messages[0]
+    # Iterate over each dictionary in the input list
+    for item in messages:
+        # Copy the dictionary to preserve the 'role' key
+        new_item = item.copy()
+        
+        # Replace "content" with "parts" as an array with a single element
+        new_item['parts'] = [item['content']]
+        del new_item['content']  # Remove the original 'content' key
+        
+        # Add the modified dictionary to the new list
+        new_messages.append(new_item)
+    return new_messages
+
 def anthropic_request(request):
     anthropic_client = Anthropic()
     # Anthropic does not take the system prompt in the message array,
@@ -126,14 +153,17 @@ def openai_request(request):
 def google_request(request):
     load_dotenv()
     google_api_key = os.environ.get("GOOGLE_API_KEY")
-    client = genai.Client(api_key=google_api_key)
+    #client = genai.Client(api_key=google_api_key)
+    genai.configure(api_key=google_api_key)
     system_instruction = request["system_prompt"]
-    response = client.models.generate_content(
-        model=request["model"],
-        config=types.GenerateContentConfig(
-            system_instruction=system_instruction
-        ),
-        contents=request["prompt"]
+    messages = openai_to_google_messages(request["messages"])
+    print(messages)
+    model = genai.GenerativeModel(
+        model_name=(request["model"]),
+        system_instruction=system_instruction
+    )
+    response = model.generate_content(
+        contents=messages
     )
     return {"role": "assistant", "content": response.text}
 
