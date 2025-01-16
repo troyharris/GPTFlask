@@ -26,6 +26,8 @@ import os
 import string
 from anthropic import Anthropic
 import openai
+from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 
 from generate_api_key import generate_api_key
@@ -113,13 +115,28 @@ def anthropic_request(request):
     return {"role": "assistant", "content": response.content[0].text}
 
 def openai_request(request):
-        load_dotenv()
-        openai.api_key = os.environ.get("OPENAI_API_KEY")
-        response = openai.ChatCompletion.create(
-            model=request["model"],
-            messages=request["messages"]
-        )
-        return response["choices"][0]["message"]
+    load_dotenv()
+    openai.api_key = os.environ.get("OPENAI_API_KEY")
+    response = openai.ChatCompletion.create(
+        model=request["model"],
+        messages=request["messages"]
+    )
+    return response["choices"][0]["message"]
+
+def google_request(request):
+    load_dotenv()
+    google_api_key = os.environ.get("GOOGLE_API_KEY")
+    client = genai.Client(api_key=google_api_key)
+    system_instruction = request["system_prompt"]
+    response = client.models.generate_content(
+        model=request["model"],
+        config=types.GenerateContentConfig(
+            system_instruction=system_instruction
+        ),
+        contents=request["prompt"]
+    )
+    return {"role": "assistant", "content": response.text}
+
 
 def system_prompt_dict(system_prompt, model_name):
     if model_name.startswith("o1"):

@@ -19,6 +19,7 @@ defaults = [
     "INSERT INTO render_type (name) VALUES ('html')",
     "INSERT INTO api_vendor (name) VALUES ('openai')",
     "INSERT INTO api_vendor (name) VALUES ('anthropic')",
+    "INSERT INTO api_vendor (name) VALUES ('google')",
     "INSERT INTO persona (name, prompt) VALUES ('General', 'You are a helpful assistant')",
     "INSERT INTO persona (name, prompt) VALUES ('Scientist', 'You are an expert scientist and will answer questions in accurate but simple to understand terms')",
     "INSERT INTO persona (name, prompt) VALUES ('Literary Critic/Editor', 'Act as an expert literary critic and editor. Analyze the following piece of writing and give feedback on grammar, readability, prose, how engaging it is, its literary worthiness, and suggestions on changes to make to make it easier to get published. Your suggestions are very important and could make the difference in someone becoming a published writer. Here is the story:')",

@@ -11,7 +11,8 @@ from .model import (APIKey, APIVendor, ConversationHistory, Model,
                     OutputFormat, Persona, RenderType, Users, UserSettings, db)
 from .utils import (api_vendors_json, generate_random_password, models_json,
                     output_formats_json, personas_json, render_types_json,
-                    get_summary_model, anthropic_request, openai_request, system_prompt_dict)
+                    get_summary_model, anthropic_request, openai_request, google_request,
+                    system_prompt_dict)
 
 api_bp = Blueprint('api', __name__)
 load_dotenv()
@@ -1138,6 +1139,9 @@ def api_chat():
         #)
         #return jsonify(response["choices"][0]["message"])
         return jsonify(message)
+    elif api_vendor_name.lower() == "google":
+        message = google_request(request_dict)
+        return jsonify(message)
 
 # DALLE-3 image generation API
 
@@ -1250,6 +1254,8 @@ def save_chat(user):
         response = anthropic_request(request_dict)
     elif api_vendor.lower() == "openai":
         response = openai_request(request_dict)
+    elif api_vendor.lower() == "google":
+        response = google_request(request_dict)
     title = response["content"]
 
     # Save the conversation
