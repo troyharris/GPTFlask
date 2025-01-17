@@ -33,6 +33,7 @@ from generate_api_key import generate_api_key
 
 from .model import APIKey, db, UserSettings, Model
 
+
 def personas_json(personas):
     persona_array = []
     for persona in personas:
@@ -40,11 +41,13 @@ def personas_json(personas):
         persona_array.append(persona_obj)
     return json.dumps(persona_array)
 
+
 def models_json(models):
     models_array = []
     for model in models:
         models_array.append(model.to_dict())
     return json.dumps(models_array)
+
 
 def output_formats_json(output_formats):
     output_formats_array = []
@@ -53,11 +56,13 @@ def output_formats_json(output_formats):
         output_formats_array.append(output_format_obj)
     return json.dumps(output_formats_array)
 
+
 def render_types_json(render_types):
     render_types_array = []
     for render_type in render_types:
         render_types_array.append(render_type.to_dict())
     return json.dumps(render_types_array)
+
 
 def api_vendors_json(api_vendors):
     api_vendors_array = []
@@ -68,15 +73,18 @@ def api_vendors_json(api_vendors):
 # When an account is created via Google, a password still needs to be created but
 # doesn't need to be used.
 
+
 def generate_random_password():
     chars = string.ascii_letters + string.digits + '+/'
     assert 256 % len(chars) == 0  # non-biased later modulo
     pwd_len = 32
     return ''.join(chars[c % len(chars)] for c in os.urandom(pwd_len))
 
+
 def get_single_api_key():
     apikey = APIKey.query.first()
     return apikey.key
+
 
 def insert_api_key():
     api_key = generate_api_key()
@@ -84,9 +92,11 @@ def insert_api_key():
     db.session.add(new_api_key)
     db.session.commit()
 
+
 def get_summary_model(user_id):
     settings = UserSettings.query.filter_by(user_id=user_id).first()
     return Model.query.get(settings.summary_model_preference_id)
+
 
 def openai_to_google_messages(messages):
     """
@@ -106,14 +116,15 @@ def openai_to_google_messages(messages):
     for item in messages:
         # Copy the dictionary to preserve the 'role' key
         new_item = item.copy()
-        
+
         # Replace "content" with "parts" as an array with a single element
         new_item['parts'] = [item['content']]
         del new_item['content']  # Remove the original 'content' key
-        
+
         # Add the modified dictionary to the new list
         new_messages.append(new_item)
     return new_messages
+
 
 def anthropic_request(request):
     anthropic_client = Anthropic()
@@ -132,6 +143,7 @@ def anthropic_request(request):
     # We need to convert Anthropic's chat response to be in OpenAI's format
     return {"role": "assistant", "content": response.content[0].text}
 
+
 def openai_request(request):
     load_dotenv()
     openai.api_key = os.environ.get("OPENAI_API_KEY")
@@ -141,10 +153,11 @@ def openai_request(request):
     )
     return response["choices"][0]["message"]
 
+
 def google_request(request):
     load_dotenv()
     google_api_key = os.environ.get("GOOGLE_API_KEY")
-    #client = genai.Client(api_key=google_api_key)
+    # client = genai.Client(api_key=google_api_key)
     genai.configure(api_key=google_api_key)
     system_instruction = request["system_prompt"]
     messages = openai_to_google_messages(request["messages"])
@@ -157,7 +170,18 @@ def google_request(request):
         contents=messages
     )
     print(response)
-    return {"role": "assistant", "content": response.text}
+    model = Model.query.filter_by(api_name=request["model"]).first()
+    if model.is_thinking:
+        print("Thinking model")
+        response_text = "# Inner Thoughts\n" + \
+            response.candidates[0].content.parts[0].text + \
+            "\n# Response\n" + \
+            response.candidates[0].content.parts[1].text
+    else:
+        print("Not a thinking model")
+        response_text = response.text
+    return {"role": "assistant", "content": response_text}
+
 
 def system_prompt_dict(system_prompt, model_name):
     if model_name.startswith("o1"):
