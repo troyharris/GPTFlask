@@ -35,6 +35,8 @@ Based on migration history and codebase:
    - Added conversation titles
    - Added API vendor to models
    - Added Google thinking state support
+   - Enhanced database relationships
+   - Optimized schema for query performance
 
 2. **Feature Implementations**
    - Multiple provider support
@@ -65,6 +67,8 @@ Based on migration history and codebase:
    - Enhance error handling coverage
    - Optimize response formatting
    - Update API documentation
+   - Implement advanced caching layer
+   - Enhance monitoring and logging
 
 2. **Medium Term**
 
