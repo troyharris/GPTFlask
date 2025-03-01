@@ -140,6 +140,8 @@ def ai_request(post_request):
         output_format_id = request_json["outputFormatId"]
         image_data = request_json["imageData"]
         model_id = request_json["modelId"]
+        max_tokens = request_json["maxTokens"]
+        budget_tokens = request_json["budgetTokens"]
         persona = Persona.query.get(persona_id)
         output_format = OutputFormat.query.get(output_format_id)
         if persona and output_format:
@@ -154,7 +156,9 @@ def ai_request(post_request):
             "output_format": output_format,
             "messages": messages,
             "model_id": model_id,
-            "thinking_mode": False
+            "thinking_mode": False,
+            "max_tokens": max_tokens,
+            "budget_tokens": budget_tokens,
         }
         request_dict.update(request_dict_additions)
 
@@ -581,7 +585,7 @@ def api_add_model():
             name=name,
             is_vision=is_vision,
             is_image_generation=is_image_generation,
-            is_thinking = is_thinking,
+            is_thinking=is_thinking,
             api_vendor_id=api_vendor_id
         )
 
@@ -1120,29 +1124,29 @@ def api_chat():
         message = anthropic_request(request_dict)
         # Anthropic does not take the system prompt in the message array,
         # so we need to get rid of it
-        #messages = request_dict["messages"]
-        #del messages[0]
+        # messages = request_dict["messages"]
+        # del messages[0]
 
         # Call Anthropic's client and send the messages.
-        #response = anthropic_client.messages.create(
+        # response = anthropic_client.messages.create(
         #    model=request_dict["model"],
         #    max_tokens=1024,
         #    system=request_dict["system_prompt"],
         #    messages=messages
-        #)
+        # )
         # We need to convert Anthropic's chat response to be in OpenAI's format
-        #message = {"role": "assistant",
+        # message = {"role": "assistant",
         #           "content": response.content[0].text}
         return jsonify(message)
 
     # If the API vendor is OpenAI, we simply pass it our model and messages object
     elif api_vendor_name.lower() == 'openai':
         message = openai_request(request_dict)
-        #response = openai.ChatCompletion.create(
+        # response = openai.ChatCompletion.create(
         #    model=request_dict["model"],
         #    messages=request_dict["messages"]
-        #)
-        #return jsonify(response["choices"][0]["message"])
+        # )
+        # return jsonify(response["choices"][0]["message"])
         return jsonify(message)
     elif api_vendor_name.lower() == "google":
         message = google_request(request_dict)
@@ -1290,10 +1294,12 @@ def api_delete_history(id, user):
         return jsonify({"message": "Error: Record user did not match logged in user"}), 500
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
-    
+
 # User Settings
 
 # Get or create user settings
+
+
 @api_bp.route('/api/user-settings', methods=['POST'])
 @require_api_key
 @require_clerk_session
@@ -1326,18 +1332,20 @@ def api_get_user_settings(user):
     try:
         settings = UserSettings.query.filter_by(user_id=user.id).first()
         if not settings:
-          settings = UserSettings(user_id=user.id)
-          db.session.add(settings)
-          db.session.commit()
-          settings = UserSettings.query.filter_by(user_id=user.id).first()
+            settings = UserSettings(user_id=user.id)
+            db.session.add(settings)
+            db.session.commit()
+            settings = UserSettings.query.filter_by(user_id=user.id).first()
         return jsonify(settings.to_dict()), 200
     except Exception as e:
         return jsonify({"message": "An unexpected error occurred."}), 500
 
 # Update user settings
+
+
 @api_bp.route('/api/user-settings/<int:setting_id>', methods=['PUT'])
 @require_api_key
-#@require_clerk_session
+# @require_clerk_session
 def api_update_user_settings(setting_id):
     """
     Create or Update User Settings
@@ -1376,25 +1384,24 @@ def api_update_user_settings(setting_id):
     print("Updating user settings")
     print(request)
     try:
-      print(request)
-      request_json = request.get_json()
-      print(request_json)
+        print(request)
+        request_json = request.get_json()
+        print(request_json)
 
-      if not request_json:
-          return jsonify({"message": "No input data provided"}), 400
+        if not request_json:
+            return jsonify({"message": "No input data provided"}), 400
 
-      settings = UserSettings.query.get(setting_id)
-      if not settings:
-          return jsonify({"message": "Settings not found"}), 404
+        settings = UserSettings.query.get(setting_id)
+        if not settings:
+            return jsonify({"message": "Settings not found"}), 404
 
-      if 'appearance_mode' in request_json:
-          settings.appearance_mode = request_json['appearance_mode']
-      if 'summary_model_preference_id' in request_json:
-          settings.summary_model_preference_id = request_json['summary_model_preference_id']
+        if 'appearance_mode' in request_json:
+            settings.appearance_mode = request_json['appearance_mode']
+        if 'summary_model_preference_id' in request_json:
+            settings.summary_model_preference_id = request_json['summary_model_preference_id']
 
-      db.session.commit()
-      return jsonify({"message": "User settings updated successfully", "settings": settings.to_dict()}), 200
+        db.session.commit()
+        return jsonify({"message": "User settings updated successfully", "settings": settings.to_dict()}), 200
     except Exception as e:
-      db.session.rollback()
-      return jsonify({"message": "An unexpected error occurred."}), 500
-
+        db.session.rollback()
+        return jsonify({"message": "An unexpected error occurred."}), 500

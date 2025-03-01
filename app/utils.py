@@ -133,15 +133,69 @@ def anthropic_request(request):
     messages = request["messages"]
     del messages[0]
 
-    # Call Anthropic's client and send the messages.
-    response = anthropic_client.messages.create(
-        model=request["model"],
-        max_tokens=1024,
-        system=request["system_prompt"],
-        messages=messages
-    )
-    # We need to convert Anthropic's chat response to be in OpenAI's format
-    return {"role": "assistant", "content": response.content[0].text}
+    # Anthropic variants support 8192 output tokens. If output token
+    # amount is included in the array, use it, otherwise default to 8192.
+    # Ensure max_tokens is never None by using the or operator
+    print("Max Tokens:")
+    print(request["max_tokens"])
+    print("Budget Tokens")
+    print(request["budget_tokens"])
+
+    max_tokens = request.get("max_tokens") or 8192
+
+    # Check if budget_tokens is in the request
+    budget_tokens = request.get("budget_tokens", 0)
+
+    # Build kwargs for the create method
+    create_kwargs = {
+        "model": request["model"],
+        "max_tokens": max_tokens,
+        "system": request["system_prompt"],
+        "messages": messages
+    }
+
+    # Add thinking parameter only if budget_tokens exists and is greater than 0
+    if budget_tokens is not None and budget_tokens > 0:
+        print("THinking budget set. I will enable thinking mode.")
+        create_kwargs["thinking"] = {
+            "type": "enabled", "budget_tokens": budget_tokens}
+    else:
+        print("Thinking mode disabled.")
+        create_kwargs["thinking"] = {"type": "disabled"}
+
+    # Call Anthropic's client and send the messages with the appropriate parameters
+    response = anthropic_client.messages.create(**create_kwargs)
+
+    # Process the response to include thinking blocks if present
+    processed_response = {"role": "assistant"}
+
+    # Create a structured content that includes both thinking and text blocks
+    content_blocks = []
+    for block in response.content:
+        if block.type == "thinking":
+            content_blocks.append({
+                "type": "thinking",
+                "thinking": block.thinking,
+                "signature": block.signature
+            })
+        elif block.type == "redacted_thinking":
+            content_blocks.append({
+                "type": "redacted_thinking",
+                "data": block.data
+            })
+        elif block.type == "text":
+            content_blocks.append({
+                "type": "text",
+                "text": block.text
+            })
+
+    # If there's only one text block and no thinking blocks, return as simple text
+    if len(content_blocks) == 1 and content_blocks[0]["type"] == "text":
+        processed_response["content"] = content_blocks[0]["text"]
+    else:
+        processed_response["content"] = content_blocks
+
+    return processed_response
 
 
 def openai_request(request):

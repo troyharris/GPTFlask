@@ -1,0 +1,143 @@
+# Project Intelligence Rules
+
+## Code Organization
+
+1. **File Structure**
+
+   - Core application code in `app/` directory
+   - Tests in `tests/` directory
+   - Database migrations in `migrations/` directory
+   - Configuration files in root directory
+
+2. **Naming Conventions**
+   - Python files use snake_case
+   - Test files prefixed with `test_`
+   - Migration files use descriptive names
+   - Environment files use `.env` and `.flaskenv` prefixes
+
+## Implementation Patterns
+
+1. **API Endpoints**
+
+   - RESTful design principles
+   - Consistent error response format
+   - Input validation before processing
+   - Standardized success responses
+
+2. **Database Operations**
+
+   - Use SQLAlchemy models
+   - Implement relationships explicitly
+   - Include proper indexes
+   - Handle migrations through Flask-Migrate
+
+3. **Provider Integration**
+   - Abstract provider-specific logic
+   - Standardize response formats
+   - Handle rate limits gracefully
+   - Implement proper error handling
+
+## Testing Practices
+
+1. **Test Organization**
+
+   - Unit tests per module
+   - Integration tests for flows
+   - Fixtures in conftest.py
+   - Mocked external services
+
+2. **Coverage Requirements**
+   - Core functionality fully covered
+   - Error paths tested
+   - Edge cases considered
+   - Integration points verified
+
+## Documentation Standards
+
+1. **Code Documentation**
+
+   - Docstrings for public interfaces
+   - Clear function/method descriptions
+   - Parameter documentation
+   - Return value documentation
+
+2. **API Documentation**
+   - Swagger/OpenAPI specs
+   - Example requests/responses
+   - Error scenarios documented
+   - Authentication details
+
+## Environment Configuration
+
+1. **Development Setup**
+
+   - Use virtual environment
+   - Load from .env files
+   - Configure Flask environment
+   - Set up database connection
+
+2. **Required Variables**
+   - Database URL
+   - API keys for providers
+   - Flask configuration
+   - CORS settings
+
+## Critical Paths
+
+1. **Authentication Flow**
+
+   - API key validation
+   - User authentication
+   - Permission checking
+   - Session management
+
+2. **Provider Integration**
+   - API client initialization
+   - Request formatting
+   - Response handling
+   - Error management
+
+## Known Challenges
+
+1. **Provider Differences**
+
+   - API version compatibility
+   - Response format variations
+   - Error handling differences
+   - Rate limit variations
+
+2. **Performance Considerations**
+   - Response time targets
+   - Database query optimization
+   - Connection pooling
+   - Resource utilization
+
+## Project Evolution
+
+1. **Recent Changes**
+
+   - Added email and admin fields
+   - Implemented personas
+   - Added conversation titles
+   - Enhanced provider support
+
+2. **Upcoming Changes**
+   - Additional provider integration
+   - Enhanced error handling
+   - Improved documentation
+   - Performance optimization
+
+## Tool Usage Patterns
+
+1. **Development Tools**
+
+   - Flask CLI for management
+   - pytest for testing
+   - coverage for test coverage
+   - Flask-Migrate for migrations
+
+2. **Database Tools**
+   - psql for direct DB access
+   - Alembic for migrations
+   - SQLAlchemy for ORM
+   - pgAdmin for visualization
